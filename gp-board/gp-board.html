@@ -1,0 +1,1049 @@
+<title>GP Board</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: scoreboard band (net GP vs goal) → stat strip → entry form beside KPI grid → ledger → pay check + settings */
+:root{
+  --bg:#F3F5F4; --surface:#FFFFFF; --ink:#14201C; --muted:#5D6B66; --line:#D9E0DD;
+  --accent:#1D5C7A; --accent-ink:#FFFFFF; --accent-soft:#E2EDF2;
+  --good:#1E7A4A; --good-soft:#E1F1E7; --bad:#B23A2E; --bad-soft:#F7E3E0; --warn:#9A6A08; --warn-soft:#F6ECD4;
+  --track:#E4E9E7;
+  --f-display:"Barlow Semi Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1614; --surface:#17211E; --ink:#E6EDEA; --muted:#93A39D; --line:#2A3833;
+  --accent:#6FB3D6; --accent-ink:#0C1A22; --accent-soft:#1A2E38;
+  --good:#5CC48B; --good-soft:#163323; --bad:#EE7F72; --bad-soft:#3A1E1B; --warn:#E2B04F; --warn-soft:#352B14;
+  --track:#24302C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1614; --surface:#17211E; --ink:#E6EDEA; --muted:#93A39D; --line:#2A3833;
+  --accent:#6FB3D6; --accent-ink:#0C1A22; --accent-soft:#1A2E38;
+  --good:#5CC48B; --good-soft:#163323; --bad:#EE7F72; --bad-soft:#3A1E1B; --warn:#E2B04F; --warn-soft:#352B14;
+  --track:#24302C; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;gap:20px}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:.01em}
+h2{font-size:1.25rem;font-weight:600}
+.label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.num{font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand h1{font-size:1.6rem;font-weight:700}
+.brand span{color:var(--muted);font-size:.85rem}
+.month{display:flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px}
+.month button{border:0;background:none;width:34px;height:34px;border-radius:6px;font-size:1.1rem}
+.month button:hover{background:var(--accent-soft)}
+.month strong{font-family:var(--f-display);font-size:1.15rem;min-width:130px;text-align:center;font-weight:600}
+
+/* scoreboard */
+.board{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:22px 22px 18px;display:grid;gap:16px}
+.board-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px}
+.big{font-family:var(--f-display);font-weight:700;font-size:clamp(2.6rem,8vw,4rem);line-height:1}
+.big small{font-size:.42em;color:var(--muted);font-weight:500;margin-left:6px}
+.status{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:.82rem;font-weight:600}
+.status.good{background:var(--good-soft);color:var(--good)}
+.status.warn{background:var(--warn-soft);color:var(--warn)}
+.status.bad{background:var(--bad-soft);color:var(--bad)}
+.status.neutral{background:var(--accent-soft);color:var(--accent)}
+.bar{position:relative;height:14px;background:var(--track);border-radius:7px;overflow:visible}
+.bar .fill{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:7px;transition:width .4s ease}
+.bar .tick{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--ink);opacity:.7}
+.bar-legend{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);flex-wrap:wrap;gap:6px}
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.strip div{background:var(--surface);padding:12px 14px;display:grid;gap:2px}
+.strip b{font-family:var(--f-display);font-size:1.45rem;font-weight:600}
+.pos{color:var(--good)} .neg{color:var(--bad)}
+
+/* two column */
+.cols{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:20px;align-items:start}
+@media (max-width:820px){.cols{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:grid;gap:14px;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+
+/* form */
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:8px;padding:3px;gap:3px;background:var(--bg)}
+.seg button{border:0;border-radius:6px;padding:9px;background:none;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"].add{background:var(--good);color:#fff}
+.seg button[aria-pressed="true"].cb{background:var(--bad);color:#fff}
+.field{display:grid;gap:5px}
+.field input,.settings input{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:7px;background:var(--bg)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.money{position:relative}
+.money::before{content:"$";position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.money input{padding-left:22px}
+.steppers{display:grid;gap:6px}
+.stepper{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)}
+.stepper:first-child{border-top:0}
+.stepper .ctl{display:flex;align-items:center;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.stepper button{border:0;background:var(--bg);width:34px;height:32px;font-size:1.05rem}
+.stepper button:hover{background:var(--accent-soft)}
+.stepper input{width:46px;height:32px;border:0;border-left:1px solid var(--line);border-right:1px solid var(--line);text-align:center;background:var(--surface);-moz-appearance:textfield}
+.stepper input::-webkit-inner-spin-button{appearance:none}
+.primary{border:0;border-radius:8px;padding:12px;font-weight:600;background:var(--accent);color:var(--accent-ink)}
+.primary.cb{background:var(--bad);color:#fff}
+.primary:disabled{opacity:.5;cursor:not-allowed}
+.hint{font-size:.8rem;color:var(--muted)}
+
+/* KPI grid */
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:420px){.kpis{grid-template-columns:minmax(0,1fr)}}
+.kpi{border:1px solid var(--line);border-radius:9px;padding:12px;display:grid;gap:8px;min-width:0}
+.kpi-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.kpi-name{font-weight:600;font-size:.9rem;overflow-wrap:anywhere}
+.kpi-val{font-family:var(--f-display);font-size:1.6rem;font-weight:600;line-height:1}
+.kpi-val small{font-size:.6em;color:var(--muted);font-weight:500}
+.mini{height:6px;background:var(--track);border-radius:3px;position:relative;overflow:hidden}
+.mini i{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--accent)}
+.mini i.done{background:var(--good)}
+.kpi-foot{font-size:.76rem;color:var(--muted)}
+
+/* ledger */
+.table-wrap{overflow-x:auto;margin:0 -18px;padding:0 18px}
+table{width:100%;border-collapse:collapse;min-width:560px}
+th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600;padding:8px 8px;border-bottom:1px solid var(--line)}
+td{padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+td.amt,th.amt{text-align:right;font-family:var(--f-mono);white-space:nowrap}
+td.date{font-family:var(--f-mono);font-size:.85rem;white-space:nowrap;color:var(--muted)}
+.pill{display:inline-block;font-size:.72rem;font-weight:600;padding:2px 8px;border-radius:999px}
+.pill.add{background:var(--good-soft);color:var(--good)}
+.pill.cb{background:var(--bad-soft);color:var(--bad)}
+.pill.ex{background:var(--warn-soft);color:var(--warn);margin-left:4px}
+.kpitags{font-size:.78rem;color:var(--muted)}
+.rm{border:1px solid var(--line);background:none;border-radius:6px;padding:4px 9px;font-size:.78rem;color:var(--muted);white-space:nowrap}
+.rm.armed{border-color:var(--bad);color:var(--bad);background:var(--bad-soft)}
+.empty{padding:28px 8px;text-align:center;color:var(--muted)}
+.ghost{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:7px 12px;font-size:.85rem;font-weight:500}
+.ghost:hover{background:var(--accent-soft)}
+.banner{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:var(--warn-soft);color:var(--warn);border-radius:9px;padding:10px 14px;font-size:.88rem}
+.banner button{border:1px solid currentColor;color:inherit;background:none;border-radius:6px;padding:5px 10px;font-weight:600}
+
+/* pay check + settings */
+.check{display:grid;gap:10px}
+.check-row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.check-row .field{flex:1 1 180px}
+.verdict{border-radius:9px;padding:12px 14px;font-size:.9rem}
+.verdict.good{background:var(--good-soft);color:var(--good)}
+.verdict.bad{background:var(--bad-soft);color:var(--bad)}
+.verdict.warn{background:var(--warn-soft);color:var(--warn)}
+details.settings{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:0 18px}
+details.settings summary{padding:16px 0;cursor:pointer;font-family:var(--f-display);font-size:1.2rem;font-weight:600}
+.settings-body{display:grid;gap:14px;padding-bottom:18px}
+.kpi-edit{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:8px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:.88rem;font-weight:500;z-index:20;max-width:calc(100% - 32px)}
+.ro{background:var(--accent-soft);color:var(--accent);border-radius:9px;padding:10px 14px;font-size:.88rem}
+@media (prefers-reduced-motion:reduce){.bar .fill{transition:none}}
+</style>
+<style>
+.seg3{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:8px;padding:3px;gap:3px;background:var(--bg)}
+.seg3 button,.seg2 button{border:0;border-radius:6px;padding:8px 4px;background:none;font-weight:600;color:var(--muted);font-size:.85rem}
+.seg2{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:8px;padding:3px;gap:3px;background:var(--bg)}
+.seg3 button[aria-pressed="true"],.seg2 button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seg3 button[aria-pressed="true"].miss,.seg2 button[aria-pressed="true"].miss{background:var(--bad);color:#fff}
+.seg3 button[aria-pressed="true"].hit,.seg2 button[aria-pressed="true"].hit{background:var(--good);color:#fff}
+.seg.mode3{grid-template-columns:repeat(3,1fr)}
+.seg.mode3 button[aria-pressed="true"].oth{background:var(--accent);color:var(--accent-ink)}
+.block{display:grid;gap:8px;padding:12px;border:1px solid var(--line);border-radius:9px}
+.block-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+.block-head b{font-size:.92rem}
+.req{font-size:.72rem;color:var(--bad);font-weight:600}
+.kpi-type{font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.target-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.view{display:grid;gap:20px}
+.top-right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.tabs{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px;gap:3px}
+.tabs a{padding:8px 14px;border-radius:6px;text-decoration:none;color:var(--muted);font-weight:600;font-size:.9rem}
+.tabs a[aria-current="page"]{background:var(--accent);color:var(--accent-ink)}
+.tabs a:not([aria-current="page"]):hover{background:var(--accent-soft)}
+.seg.mode4{grid-template-columns:repeat(4,1fr)}
+@media (max-width:480px){.seg.mode4{grid-template-columns:1fr 1fr}}
+.seg.mode4 button[aria-pressed="true"].oth{background:var(--accent);color:var(--accent-ink)}
+.seg.mode4 button[aria-pressed="true"].prk{background:var(--good);color:#fff}
+.app{font-family:var(--f-mono);font-size:.82rem;font-weight:500}
+.desc .note{display:block;color:var(--muted);font-size:.85rem}
+.filters{display:flex;gap:8px;flex-wrap:wrap}
+.filters select,.filters input{padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:var(--bg)}
+.filters input{flex:1 1 200px;min-width:0}
+.hstrip{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+.hstrip small{color:var(--muted);font-size:.76rem}
+td.c,th.c{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--accent-soft)}
+</style>
+<style>
+.editing{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:9px 12px;font-size:.88rem;font-weight:600}
+.editing button{border:1px solid currentColor;background:none;color:inherit;border-radius:6px;padding:4px 10px;font-weight:600}
+.actions{display:flex;gap:6px;justify-content:flex-end}
+.rm.ed{color:var(--accent)}
+.sub-hint{font-size:.78rem;color:var(--muted)}
+.step{display:grid;gap:10px;padding:14px;border:1px solid var(--line);border-radius:10px}
+.step-head{display:flex;align-items:center;gap:9px}
+.step-head b{font-size:.95rem}
+.step-n{flex:none;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:.74rem;font-weight:700}
+.q{margin:0;font-size:.9rem}
+.q b{font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{min-width:42px;height:38px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-weight:600;font-variant-numeric:tabular-nums}
+.chips button:hover{background:var(--accent-soft)}
+.chips button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chips input{width:80px;height:38px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.skip{margin:0;font-size:.85rem;color:var(--muted);background:var(--bg);border-radius:8px;padding:10px 12px}
+.summary{display:grid;gap:4px;background:var(--bg);border:1px dashed var(--line);border-radius:9px;padding:11px 13px;font-size:.86rem}
+.summary b{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+[hidden]{display:none!important}
+.mode-q{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;margin:0}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><h1>GP Board</h1><span>Gross profit &amp; KPI tracker</span></div>
+    <div class="top-right">
+      <nav class="tabs" aria-label="Pages"><a href="#tracker" id="tabTracker" aria-current="page">Tracker</a><a href="#history" id="tabHistory">History</a></nav>
+      <nav class="month" id="monthNav" aria-label="Month">
+        <button id="prevMonth" aria-label="Previous month">‹</button>
+        <strong id="monthLabel">—</strong>
+        <button id="nextMonth" aria-label="Next month">›</button>
+      </nav>
+    </div>
+  </header>
+
+  <div id="exampleBanner" class="banner" hidden>
+    <span>Rows tagged <b>Example</b> are sample data so you can see how it works.</span>
+    <button id="clearExamples">Clear examples</button>
+  </div>
+  <div id="readOnly" class="ro" hidden>You're viewing this tracker read-only.</div>
+
+  <div class="view" id="viewTracker">
+  <section class="board" aria-label="Monthly gross profit">
+    <div class="board-head">
+      <div>
+        <div class="label">Net GP this month</div>
+        <div class="big num"><span id="netGp">$0</span><small id="goalOf">of $15,000</small></div>
+      </div>
+      <span id="paceStatus" class="status neutral">Getting started</span>
+    </div>
+    <div class="bar" role="progressbar" aria-label="Progress to goal" id="goalBar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="fill" id="goalFill" style="width:0%"></div>
+      <div class="tick" id="paceTick" title="Where you should be today"></div>
+    </div>
+    <div class="bar-legend"><span id="pctLabel">0% of goal</span><span id="tickLabel">▏ = where you should be today</span></div>
+    <div class="strip">
+      <div><span class="label">GP added</span><b class="num pos" id="sAdded">$0</b></div>
+      <div><span class="label">Chargebacks</span><b class="num neg" id="sCb">$0</b></div>
+      <div><span class="label">Left to goal</span><b class="num" id="sLeft">$15,000</b></div>
+      <div><span class="label" id="sNeedLabel">Needed per day</span><b class="num" id="sNeed">—</b></div>
+      <div><span class="label">Month-end pace</span><b class="num" id="sProj">—</b></div>
+      <div id="commBox" hidden><span class="label">Est. commission</span><b class="num" id="sComm">—</b></div>
+    </div>
+  </section>
+
+  <div class="cols">
+    <section class="panel" aria-labelledby="entryTitle" id="entryPanel">
+      <div class="panel-head"><h2 id="entryTitle">Log an entry</h2><span class="hint">Saves instantly</span></div>
+      <div class="editing" id="editBar" hidden><span id="editText">Editing entry</span><button type="button" id="cancelEdit">Cancel edit</button></div>
+      <p class="mode-q">What are you logging?</p>
+      <div class="seg mode4" role="group" aria-label="Entry type">
+        <button id="modeSale" class="add" aria-pressed="true">+ Sale</button>
+        <button id="modePerks" class="prk" aria-pressed="false">+ Perks only</button>
+        <button id="modeCb" class="cb" aria-pressed="false">− Chargeback</button>
+        <button id="modeOther" class="oth" aria-pressed="false">Other GP</button>
+      </div>
+      <form id="entryForm" class="steppers" style="gap:12px" autocomplete="off">
+        <div class="row2">
+          <label class="field"><span class="label">Date</span><input type="date" id="fDate" required></label>
+          <label class="field"><span class="label" id="amtLabel">Gross profit</span><span class="money"><input type="number" id="fAmt" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></span></label>
+        </div>
+        <div class="row2">
+          <label class="field" id="appField"><span class="label" id="appLabel">Sales application #</span><input type="text" id="fApp" maxlength="40" placeholder="Required"></label>
+          <label class="field" id="noteField"><span class="label">Customer / note</span><input type="text" id="fDesc" maxlength="120" placeholder="Optional"></label>
+        </div>
+
+        <div id="saleFields" class="steppers" style="gap:10px">
+          <div class="step">
+            <div class="step-head"><span class="step-n">1</span><b>What did you sell?</b></div>
+            <div class="steppers" id="countSteppers"></div>
+          </div>
+
+          <div class="step" id="premStep" hidden>
+            <div class="step-head"><span class="step-n" id="premN">2</span><b>Premium</b></div>
+            <p class="q" id="premQ"></p>
+            <div class="chips" id="premChips" role="group" aria-label="Phones on premium plan"></div>
+          </div>
+
+          <div class="step" id="vmpStep" hidden>
+            <div class="step-head"><span class="step-n" id="vmpN">3</span><b>VMP (protection)</b></div>
+            <div id="vmpOppBox" class="steppers" style="gap:8px">
+              <p class="q" id="vmpOppQ"></p>
+              <div class="chips" id="vmpOppChips" role="group" aria-label="Phones and tablets without VMP"></div>
+              <div id="vmpAddBox" class="steppers" style="gap:8px">
+                <p class="q" id="vmpAddQ"></p>
+                <div class="chips" id="vmpAddChips" role="group" aria-label="VMP added"></div>
+              </div>
+            </div>
+            <div id="vmpWatchBox" class="steppers" style="gap:8px">
+              <p class="q" id="vmpWatchQ"></p>
+              <div class="chips" id="vmpWatchChips" role="group" aria-label="VMP added to watches"></div>
+              <span class="hint">Watches aren't a VMP opportunity, so each one you add is a straight +1.</span>
+            </div>
+          </div>
+          <p class="skip" id="noPhoneNote"></p>
+
+          <div class="step">
+            <div class="step-head"><span class="step-n" id="perksN">2</span><b>Perks</b></div>
+            <p class="q" id="perksOppQ"></p>
+            <div class="stepper" id="pcRow"></div>
+            <div class="stepper" id="perksRow"></div>
+            <span class="hint" id="perksHint"></span>
+          </div>
+
+          <div class="summary" id="saleSummary" aria-live="polite"></div>
+        </div>
+
+        <div id="perksFields" class="block" hidden>
+          <div class="block-head"><b>Perks added</b><span class="hint">No opportunity added</span></div>
+          <div class="stepper" id="perksOnlyRow"></div>
+        </div>
+
+        <div id="cbFields" class="block" hidden>
+          <div class="block-head"><b>KPIs to take back</b><span class="hint">Leave at 0 if only GP was charged back</span></div>
+          <div class="steppers" id="cbSteppers"></div>
+          <span class="hint">Counts in the month of the chargeback date. It isn't a sale and doesn't change any opportunities. Example: customer drops VMP a month later → VMP −1 this month.</span>
+        </div>
+
+        <button class="primary" id="saveBtn" type="submit">Save sale</button>
+        <p class="hint" id="modeHint" style="margin:0"></p>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="kpiTitle">
+      <div class="panel-head"><h2 id="kpiTitle">KPIs</h2><span class="hint" id="kpiHit">0 sales</span></div>
+      <div class="kpis" id="kpiGrid"></div>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="ledgerTitle">
+    <div class="panel-head">
+      <h2 id="ledgerTitle">Ledger</h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span class="hint" id="ledgerCount">0 entries</span>
+        <button class="ghost" id="exportBtn" hidden>Export CSV</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Type</th><th>App # / note</th><th>KPIs</th><th class="amt">GP</th><th><span style="position:absolute;left:-9999px">Actions</span></th></tr></thead>
+        <tbody id="ledger"><tr><td colspan="6" class="empty">Loading your entries…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel check" aria-labelledby="checkTitle">
+    <div class="panel-head"><h2 id="checkTitle">Pay statement check</h2><span class="hint">Compare your records to what payroll credited</span></div>
+    <form class="check-row" id="payForm">
+      <label class="field"><span class="label">GP shown on pay statement</span><span class="money"><input type="number" id="fPayroll" step="0.01" placeholder="From your statement"></span></label>
+      <button class="ghost" type="submit" style="height:40px">Save</button>
+    </form>
+    <div id="verdict" class="verdict warn" hidden></div>
+  </section>
+
+  <details class="settings" id="settingsBox">
+    <summary id="setupTitle">Goal &amp; targets</summary>
+    <form class="settings-body" id="settingsForm">
+      <p class="hint" style="margin:0">Targets are saved for this month only. New months start with the last targets you saved.</p>
+      <div class="row2">
+        <label class="field"><span class="label">Monthly GP goal</span><span class="money"><input type="number" id="sGoal" min="0" step="100"></span></label>
+        <label class="field"><span class="label">Commission % of GP (optional)</span><input type="number" id="sPct" min="0" max="100" step="0.1" placeholder="e.g. 25"></label>
+      </div>
+      <div class="target-grid">
+        <label class="field"><span class="label">Phone adds</span><input type="number" id="tPhone" min="0" step="1"></label>
+        <label class="field"><span class="label">Home internet</span><input type="number" id="tHint" min="0" step="1"></label>
+        <label class="field"><span class="label">VMP %</span><input type="number" id="tVmp" min="0" step="1"></label>
+        <label class="field"><span class="label">Perks %</span><input type="number" id="tPerks" min="0" step="1"></label>
+        <label class="field"><span class="label">Pull thru %</span><input type="number" id="tPull" min="0" step="1"></label>
+        <label class="field"><span class="label">Premium % minimum</span><input type="number" id="tPrem" min="0" max="100" step="1"></label>
+      </div>
+      <button class="primary" type="submit">Save targets</button>
+    </form>
+  </details>
+  </div>
+
+  <div class="view" id="viewHistory" hidden>
+    <section class="panel" aria-labelledby="hTitle">
+      <div class="panel-head"><h2 id="hTitle">Sales history</h2><button class="ghost" id="hExport" hidden>Export CSV</button></div>
+      <div class="filters">
+        <select id="hRange" aria-label="Period"><option value="all">All time</option></select>
+        <input type="search" id="hSearch" placeholder="Search app # or customer" aria-label="Search app number or customer">
+      </div>
+      <div class="strip hstrip" id="hTotals"></div>
+    </section>
+    <section class="panel" aria-labelledby="hMonthTitle">
+      <div class="panel-head"><h2 id="hMonthTitle">Month by month</h2><span class="hint">Tap a month to filter</span></div>
+      <div class="table-wrap"><table style="min-width:820px">
+        <thead><tr><th>Month</th><th class="c">Sales</th><th class="c">Net GP</th><th class="c">Adds</th><th class="c">Upg</th><th class="c">HINT</th><th class="c">VMP</th><th class="c">Perks</th><th class="c">Pull thru</th><th class="c">Premium</th></tr></thead>
+        <tbody id="hMonths"></tbody>
+      </table></div>
+    </section>
+    <section class="panel" aria-labelledby="hListTitle">
+      <div class="panel-head"><h2 id="hListTitle">All entries</h2><span class="hint" id="hCount"></span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Date</th><th>Type</th><th>App # / note</th><th>KPIs</th><th class="amt">GP</th><th><span style="position:absolute;left:-9999px">Actions</span></th></tr></thead>
+        <tbody id="hList"><tr><td colspan="6" class="empty">Loading history…</td></tr></tbody>
+      </table></div>
+    </section>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const DEFAULT_TARGETS = {phone:14, hint:4, vmp:65, perks:69, pull:15, premium:60};
+const KPIS = [
+  {id:"phone", name:"Phone adds", type:"count"},
+  {id:"hint", name:"Home internet", type:"count"},
+  {id:"vmp", name:"VMP", type:"rate"},
+  {id:"perks", name:"Perks", type:"rate"},
+  {id:"pull", name:"Pull thru", type:"rate"},
+  {id:"premium", name:"Premium %", type:"rate"}
+];
+const $ = id => document.getElementById(id);
+const fmt$ = n => (n < 0 ? "−$" : "$") + Math.abs(n).toLocaleString("en-US", {minimumFractionDigits: Math.abs(n) % 1 ? 2 : 0, maximumFractionDigits: 2});
+const fmtK = n => (n < 0 ? "−$" : "$") + Math.round(Math.abs(n)).toLocaleString("en-US");
+const pad = n => String(n).padStart(2, "0");
+const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+const monthOf = s => s.slice(0, 7);
+const monthName = key => { const [y, m] = key.split("-").map(Number); return new Date(y, m-1, 1).toLocaleString("en-US", {month:"long", year:"numeric"}); };
+const shiftMonth = (key, by) => { const [y, m] = key.split("-").map(Number); const d = new Date(y, m-1+by, 1); return `${d.getFullYear()}-${pad(d.getMonth()+1)}`; };
+const isSet = v => v !== null && v !== undefined && v !== "" && isFinite(v);
+const ratio = (n, d) => d ? n / d : null;
+const fmtP = r => r === null ? "—" : Math.round(r * 100) + "%";
+const pctStr = (n, d) => d ? Math.round(n / d * 100) + "%" : "—";
+const N = v => Number(v) || 0;
+
+let db = null, downloads = null, canWrite = true;
+let settings = {goal:15000, commissionPct:0, targets:{...DEFAULT_TARGETS}};
+let entries = [], monthData = {}, loaded = false;
+let month = monthOf(todayStr());
+let mode = "sale", editing = null;
+let unsubEntries = null, unsubMonth = null;
+
+const BLANK = {phone:0, upg:0, hint:0, tab:0, watch:0, prem:0, vmpOpp:0, vmpLines:0, vmpWatch:0, perks:0, planChanges:0, perksOnly:1};
+const BLANK_CB = {phone:0, upg:0, prem:0, hint:0, vmpLines:0, perks:0, pull:0};
+const draft = {...BLANK}, cbDraft = {...BLANK_CB};
+
+function toast(msg){ const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 2800); }
+const goal = () => isSet(monthData.goal) ? Number(monthData.goal) : Number(settings.goal) || 0;
+const targets = () => ({...DEFAULT_TARGETS, ...settings.targets, ...(monthData.targets || {})});
+
+/* ---------- calculations ----------
+   Sales are the only entries that add opportunities (VMP opps, plan changes) or count as a sale (pull thru).
+   Chargebacks carry negative counts that lower totals in the month they're dated, with no opportunity change. */
+const perksOppOf = e => typeof e.perksOpp === "number" ? e.perksOpp : (e.planChange ? 1 : 0);
+function totals(list = entries){
+  const t = {added:0, cb:0, sales:0, phone:0, upg:0, hint:0, pull:0, prem:0, vmpAdded:0, vmpOpp:0, perks:0, perksOpp:0};
+  for (const e of list){
+    const gp = N(e.gp);
+    if (gp >= 0) t.added += gp; else t.cb += gp;
+    t.phone += N(e.phone); t.upg += N(e.upg); t.hint += N(e.hint); t.pull += N(e.pull);
+    t.prem += N(e.prem); t.vmpAdded += N(e.vmpLines) + N(e.vmpWatch); t.perks += N(e.perks);
+    if (e.kind === "sale"){ t.sales++; t.vmpOpp += N(e.vmpOpp); t.perksOpp += perksOppOf(e); }
+  }
+  t.phonesSold = t.phone + t.upg;
+  t.net = t.added + t.cb;
+  return t;
+}
+function monthClock(){
+  const [y, m] = month.split("-").map(Number);
+  const days = new Date(y, m, 0).getDate(), nowKey = monthOf(todayStr());
+  if (month < nowKey) return {days, elapsed: days, remaining: 0, state: "past"};
+  if (month > nowKey) return {days, elapsed: 0, remaining: days, state: "future"};
+  const today = new Date().getDate();
+  return {days, elapsed: today, remaining: days - today + 1, state: "current"};
+}
+
+/* ---------- render ---------- */
+function render(){
+  $("monthLabel").textContent = monthName(month);
+  $("setupTitle").textContent = `Goal & targets · ${monthName(month)}`;
+  const t = totals(), g = goal(), clk = monthClock();
+  const pct = g ? t.net / g * 100 : 0;
+  $("netGp").textContent = fmtK(t.net);
+  $("netGp").className = t.net < 0 ? "neg" : "";
+  $("goalOf").textContent = "of " + fmtK(g);
+  $("goalFill").style.width = Math.max(0, Math.min(100, pct)) + "%";
+  $("goalFill").style.background = pct >= 100 ? "var(--good)" : "var(--accent)";
+  $("goalBar").setAttribute("aria-valuenow", Math.round(Math.max(0, pct)));
+  $("pctLabel").textContent = `${Math.round(pct)}% of goal`;
+  $("paceTick").hidden = $("tickLabel").hidden = clk.state !== "current";
+  $("paceTick").style.left = `calc(${clk.elapsed / clk.days * 100}% - 1px)`;
+  $("tickLabel").textContent = `▏ = where you should be today (${fmtK(g * clk.elapsed / clk.days)})`;
+
+  $("sAdded").textContent = fmtK(t.added);
+  $("sCb").textContent = t.cb ? fmtK(t.cb) : "$0";
+  const left = Math.max(0, g - t.net);
+  $("sLeft").textContent = left ? fmtK(left) : "Goal hit";
+  $("sLeft").className = "num" + (left ? "" : " pos");
+  const proj = clk.state === "current" && clk.elapsed ? t.net / clk.elapsed * clk.days : t.net;
+  $("sProj").textContent = clk.state === "future" ? "—" : fmtK(proj);
+  if (clk.state === "past"){ $("sNeedLabel").textContent = "Finished at"; $("sNeed").textContent = Math.round(pct) + "%"; }
+  else { $("sNeedLabel").textContent = `Needed per day (${clk.remaining} left)`; $("sNeed").textContent = left ? fmtK(left / clk.remaining) : "$0"; }
+  const pctComm = N(settings.commissionPct);
+  $("commBox").hidden = !pctComm;
+  $("sComm").textContent = fmtK(t.net * pctComm / 100);
+
+  const st = $("paceStatus");
+  if (!entries.length){ st.className = "status neutral"; st.textContent = "No entries yet"; }
+  else if (t.net >= g){ st.className = "status good"; st.textContent = "Goal reached"; }
+  else if (clk.state === "past"){ st.className = "status bad"; st.textContent = `Missed by ${fmtK(g - t.net)}`; }
+  else if (proj >= g){ st.className = "status good"; st.textContent = "On pace"; }
+  else if (proj >= g * .85){ st.className = "status warn"; st.textContent = `Slightly behind · pacing ${fmtK(proj)}`; }
+  else { st.className = "status bad"; st.textContent = `Behind · pacing ${fmtK(proj)}`; }
+
+  renderKpis(t, clk);
+  renderLedger();
+  renderVerdict(t);
+  $("exampleBanner").hidden = !(canWrite && entries.some(e => e.example));
+}
+
+function kpiCard(k, t, tg, clk){
+  const el = document.createElement("div"); el.className = "kpi";
+  let valHtml, p = 0, done = false, foot = "", sub = "";
+  const target = tg[k.id];
+  if (k.type === "count"){
+    const v = t[k.id];
+    valHtml = isSet(target) ? `${v}<small> / ${target}</small>` : `${v}`;
+    if (isSet(target) && target > 0){
+      p = v / target * 100; done = v >= target;
+      foot = done ? "Target hit" : clk.state === "current"
+        ? `${target - v} to go · on pace for ${Math.round(clk.elapsed ? v / clk.elapsed * clk.days : 0)}`
+        : `${target - v} short`;
+    } else foot = "No target set";
+    sub = k.id === "phone" ? `New lines · ${t.upg} upgrade${t.upg === 1 ? "" : "s"} also sold` : "Count";
+  } else {
+    const [num, den, unit, denName] = {
+      vmp: [t.vmpAdded, t.vmpOpp, "VMP", "opp"],
+      perks: [t.perks, t.perksOpp, "perk", "opp"],
+      pull: [t.pull, t.sales, "connected device", "sale"],
+      premium: [t.prem, t.phonesSold, "premium plan", "phone"]
+    }[k.id];
+    const r = ratio(num, den), f = Number(target) / 100;
+    valHtml = `${fmtP(r)}${isSet(target) ? `<small> / ${target}%</small>` : ""}`;
+    sub = k.id === "premium" ? `${num} premium plan${num === 1 ? "" : "s"} on ${den} phone${den === 1 ? "" : "s"} sold` : `${num} added ÷ ${den} ${denName}${den === 1 ? "" : "s"}`;
+    if (isSet(target) && target > 0){
+      if (den <= 0){ foot = num > 0 ? "Added, no opportunities yet" : {pull:"No sales yet", premium:"No phones sold yet"}[k.id] || "No opportunities yet"; p = num > 0 ? 100 : 0; done = num > 0; }
+      else {
+        p = r / f * 100; done = r >= f;
+        if (done) foot = "At or above target";
+        else if (k.id === "premium"){
+          // each new premium sale raises both sides of the ratio
+          const need = f >= 1 ? Infinity : Math.ceil((f * den - num) / (1 - f) - 1e-9);
+          foot = `Next ${need} phone${need === 1 ? "" : "s"} sold need a premium plan`;
+        } else {
+          const need = Math.ceil(f * den - num - 1e-9);
+          foot = `${need} more ${unit}${need === 1 ? "" : "s"} to reach ${target}%`;
+        }
+      }
+    } else foot = "No target set";
+  }
+  el.innerHTML = `<div class="kpi-top"><span class="kpi-name"></span><span class="kpi-val num">${valHtml}</span></div>
+    <div class="kpi-type"></div>
+    <div class="mini"><i class="${done ? "done" : ""}" style="width:${Math.max(0, Math.min(100, p))}%"></i></div>
+    <div class="kpi-foot"></div>`;
+  el.querySelector(".kpi-name").textContent = k.name;
+  el.querySelector(".kpi-type").textContent = sub;
+  el.querySelector(".kpi-foot").textContent = foot;
+  return {el, done};
+}
+function renderKpis(t, clk){
+  const grid = $("kpiGrid"); grid.textContent = "";
+  const tg = targets(); let hit = 0, withTarget = 0;
+  for (const k of KPIS){
+    const {el, done} = kpiCard(k, t, tg, clk);
+    if (isSet(tg[k.id]) && tg[k.id] > 0){ withTarget++; if (done) hit++; }
+    grid.append(el);
+  }
+  $("kpiHit").textContent = `${t.sales} sale${t.sales === 1 ? "" : "s"} · ${hit} of ${withTarget} on target`;
+}
+
+function kpiTags(e){
+  const s = [], sg = n => (n > 0 ? "+" : "−") + Math.abs(n);
+  if (e.kind === "sale"){
+    if (e.phone) s.push(`Adds ${e.phone}`);
+    if (e.upg) s.push(`Upg ${e.upg}`);
+    if (N(e.phone) + N(e.upg)) s.push(`Premium ${N(e.prem)}/${N(e.phone) + N(e.upg)}`);
+    if (e.hint) s.push(`HINT ${e.hint}`);
+    if (e.vmpOpp) s.push(`VMP ${N(e.vmpLines)}/${e.vmpOpp}`);
+    const po = perksOppOf(e);
+    if (e.perks || po) s.push(po ? `Perks ${N(e.perks)}/${po}` : `Perks +${e.perks}`);
+    const pt = [e.tab && `${e.tab} tab`, e.watch && `${e.watch} watch`].filter(Boolean).join(", ");
+    s.push(`Pull thru ${N(e.pull)}${pt ? ` (${pt})` : ""}`);
+    if (e.vmpWatch) s.push(`Watch VMP +${e.vmpWatch}`);
+  } else {
+    const L = {phone:"Adds", upg:"Upg", prem:"Premium", hint:"HINT", vmpLines:"VMP", perks:"Perks", pull:"Pull thru"};
+    for (const [k, l] of Object.entries(L)) if (e[k]) s.push(`${l} ${sg(e[k])}`);
+  }
+  return s.join(" · ");
+}
+const KIND = {sale:["add","Sale"], perks:["add","Perks only"], chargeback:["cb","Chargeback"], other:["add","Other GP"]};
+function fillDesc(td, e){
+  td.textContent = "";
+  if (e.app){ const a = document.createElement("span"); a.className = "app"; a.textContent = "#" + e.app; td.append(a); }
+  if (e.desc || !e.app){ const n = document.createElement("span"); n.className = e.app ? "note" : ""; n.textContent = e.desc || "—"; td.append(n); }
+}
+function rowActions(cell, e){
+  if (!canWrite || !db) return;
+  const box = document.createElement("div"); box.className = "actions";
+  const ed = document.createElement("button"); ed.className = "rm ed"; ed.textContent = "Edit";
+  ed.onclick = () => startEdit(e);
+  const b = document.createElement("button"); b.className = "rm"; b.textContent = "Remove";
+  b.addEventListener("click", async () => {
+    if (!b.classList.contains("armed")){ b.classList.add("armed"); b.textContent = "Confirm"; setTimeout(() => { b.classList.remove("armed"); b.textContent = "Remove"; }, 3000); return; }
+    b.disabled = true;
+    try { await db.doc("entries/" + e.id).delete(); if (editing && editing.id === e.id) cancelEdit(); toast("Entry removed"); }
+    catch { b.disabled = false; toast("Couldn't remove it. Check your connection and try again."); }
+  });
+  box.append(ed, b); cell.append(box);
+}
+function entryRow(e, withYear){
+  const tr = document.createElement("tr");
+  const [cls, label] = KIND[e.kind] || KIND.other, gp = N(e.gp);
+  const [y, m, d] = e.date.split("-");
+  tr.innerHTML = `<td class="date">${m}/${d}${withYear ? "/" + y.slice(2) : ""}</td>
+    <td><span class="pill ${cls}">${label}</span>${e.example ? '<span class="pill ex">Example</span>' : ""}</td>
+    <td class="desc"></td><td class="kpitags"></td>
+    <td class="amt ${gp < 0 ? "neg" : "pos"}">${fmt$(gp)}</td><td></td>`;
+  fillDesc(tr.querySelector(".desc"), e);
+  tr.querySelector(".kpitags").textContent = kpiTags(e) || "—";
+  rowActions(tr.lastElementChild, e);
+  return tr;
+}
+function renderLedger(){
+  const body = $("ledger"); body.textContent = "";
+  const rows = [...entries].sort((a, b) => (b.date + (b.createdAt||"")).localeCompare(a.date + (a.createdAt||"")));
+  $("ledgerCount").textContent = `${rows.length} ${rows.length === 1 ? "entry" : "entries"}`;
+  $("exportBtn").hidden = !downloads || !rows.length;
+  if (!rows.length){
+    body.innerHTML = `<tr><td colspan="6" class="empty">${loaded ? `No entries for ${monthName(month)}. Log your first sale above and it shows up here.` : "Loading your entries…"}</td></tr>`;
+    return;
+  }
+  for (const e of rows) body.append(entryRow(e, false));
+}
+
+function renderVerdict(t){
+  const v = $("verdict"), p = monthData.payrollGp, inp = $("fPayroll");
+  if (document.activeElement !== inp) inp.value = p ?? "";
+  if (!isSet(p)){ v.hidden = true; return; }
+  const diff = Number(p) - t.net; v.hidden = false;
+  if (Math.abs(diff) < 1){ v.className = "verdict good"; v.textContent = `Matches your records (${fmt$(t.net)}).`; }
+  else if (diff < 0){ v.className = "verdict bad"; v.textContent = `Pay statement is ${fmt$(-diff)} lower than your records (${fmt$(t.net)}). Compare entry by entry in the ledger and ask payroll about the gap.`; }
+  else { v.className = "verdict warn"; v.textContent = `Pay statement is ${fmt$(diff)} higher than your records (${fmt$(t.net)}). You may have a sale or spiff that isn't logged here.`; }
+}
+
+/* ---------- entry form ---------- */
+function stepper(row, label, store, key, min = 0, onChange){
+  row.className = "stepper"; row.textContent = "";
+  const nm = document.createElement("span"); nm.textContent = label;
+  const ctl = document.createElement("div"); ctl.className = "ctl";
+  const minus = document.createElement("button"); minus.type = "button"; minus.textContent = "−"; minus.setAttribute("aria-label", "Less " + label);
+  const inp = document.createElement("input"); inp.type = "number"; inp.min = String(min); inp.step = "1";
+  inp.id = "st-" + (store === cbDraft ? "cb-" : "") + key; inp.setAttribute("aria-label", label); inp.value = store[key];
+  const plus = document.createElement("button"); plus.type = "button"; plus.textContent = "+"; plus.setAttribute("aria-label", "More " + label);
+  const set = n => { n = Math.max(min, Math.round(n) || 0); inp.value = n; store[key] = n; onChange && onChange(); };
+  minus.onclick = () => set(Number(inp.value) - 1);
+  plus.onclick = () => set(Number(inp.value) + 1);
+  inp.oninput = () => { store[key] = Math.max(min, Math.round(Number(inp.value)) || 0); onChange && onChange(); };
+  ctl.append(minus, inp, plus); row.append(nm, ctl);
+  return row;
+}
+function chips(box, max, value, onPick){
+  box.textContent = "";
+  if (max > 12){
+    const inp = document.createElement("input"); inp.type = "number"; inp.min = "0"; inp.max = String(max); inp.value = value;
+    inp.id = box.id + "-n"; inp.setAttribute("aria-label", box.getAttribute("aria-label"));
+    inp.oninput = () => onPick(Math.max(0, Math.min(max, Math.round(Number(inp.value)) || 0)), true);
+    box.append(inp); return;
+  }
+  for (let i = 0; i <= max; i++){
+    const b = document.createElement("button"); b.type = "button"; b.textContent = i;
+    b.setAttribute("aria-pressed", i === value);
+    b.onclick = () => onPick(i);
+    box.append(b);
+  }
+}
+const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + "s")}`;
+function syncSale(typed){
+  const n = draft.phone + draft.upg, dev = n + draft.tab, w = draft.watch;
+  draft.prem = Math.min(draft.prem, n);
+  draft.vmpOpp = Math.min(draft.vmpOpp, dev);
+  draft.vmpLines = Math.min(draft.vmpLines, draft.vmpOpp);
+  draft.vmpWatch = Math.min(draft.vmpWatch, w);
+  $("premStep").hidden = n === 0;
+  $("vmpStep").hidden = dev === 0 && w === 0;
+  $("vmpOppBox").hidden = dev === 0;
+  $("vmpWatchBox").hidden = w === 0;
+  $("vmpAddBox").hidden = draft.vmpOpp === 0;
+  let step = 1;
+  if (n) $("premN").textContent = ++step;
+  if (dev || w) $("vmpN").textContent = ++step;
+  $("perksN").textContent = ++step;
+  const note = $("noPhoneNote");
+  note.hidden = n > 0 && dev > 0;
+  note.textContent = !n && !dev && !w ? "No phone or tablet sold, so Premium and VMP are skipped. This sale won't count against either one."
+    : !n ? "No phone sold, so Premium is skipped. This sale won't count against it." : "";
+  if (!typed){
+    const devName = draft.tab && n ? `${plural(dev, "phone/tablet", "phones/tablets")}` : draft.tab ? plural(dev, "tablet") : plural(dev, "phone");
+    $("premQ").innerHTML = `How many of the <b>${plural(n, "phone")}</b> you sold went on a premium plan?`;
+    chips($("premChips"), n, draft.prem, (v, t) => { draft.prem = v; syncSale(t); });
+    $("vmpOppQ").innerHTML = `How many of the <b>${devName}</b> did <b>not</b> already have VMP?`;
+    chips($("vmpOppChips"), dev, draft.vmpOpp, (v, t) => { draft.vmpOpp = v; syncSale(t); });
+    $("vmpAddQ").innerHTML = `How many of those <b>${draft.vmpOpp}</b> did you add VMP to?`;
+    chips($("vmpAddChips"), draft.vmpOpp, draft.vmpLines, (v, t) => { draft.vmpLines = v; syncSale(t); });
+    $("vmpWatchQ").innerHTML = `Did you add VMP to any of the <b>${plural(w, "watch", "watches")}</b>?`;
+    chips($("vmpWatchChips"), w, draft.vmpWatch, (v, t) => { draft.vmpWatch = v; syncSale(t); });
+  }
+  renderSummary();
+}
+function renderSummary(){
+  const n = draft.phone + draft.upg, dev = n + draft.tab, parts = [];
+  if (draft.phone) parts.push(plural(draft.phone, "new line"));
+  if (draft.upg) parts.push(plural(draft.upg, "upgrade"));
+  if (draft.hint) parts.push(`${draft.hint} home internet`);
+  const lines = [parts.join(" · ") || "No phones or home internet"];
+  const pt = [draft.tab && plural(draft.tab, "tablet"), draft.watch && plural(draft.watch, "watch", "watches")].filter(Boolean).join(", ");
+  lines.push(`Pull thru ${draft.tab + draft.watch}${pt ? ` (${pt})` : ""} on 1 opportunity`);
+  lines.push(n ? `Premium ${draft.prem} of ${plural(n, "phone")}` : "No phone sold: no Premium opportunity");
+  const v = [];
+  if (dev) v.push(draft.vmpOpp ? `${draft.vmpLines} added of ${plural(draft.vmpOpp, "opportunity", "opportunities")}` : "no opportunity (already had it)");
+  if (draft.vmpWatch) v.push(`+${draft.vmpWatch} on watch${draft.vmpWatch === 1 ? "" : "es"}, no opportunity`);
+  lines.push(v.length ? `VMP ${v.join(" · ")}` : "No VMP opportunity");
+  const po = draft.phone + draft.planChanges;
+  lines.push(po ? `Perks ${draft.perks} added of ${plural(po, "opportunity", "opportunities")}` : (draft.perks ? `Perks +${draft.perks}, no opportunity` : "No perks opportunity"));
+  const box = $("saleSummary"); box.textContent = "";
+  const h = document.createElement("b"); h.textContent = "This sale will count as"; box.append(h);
+  for (const l of lines){ const d = document.createElement("span"); d.textContent = l; box.append(d); }
+}
+function buildSteppers(){
+  const box = $("countSteppers"); box.textContent = "";
+  [["phone","Phone adds (new lines)"],["upg","Phone upgrades"],["hint","Home internet"],["tab","Tablets (pull thru)"],["watch","Watches (pull thru)"]]
+    .forEach(([k, l]) => box.append(stepper(document.createElement("div"), l, draft, k, 0, () => { syncSale(); syncChoices(); })));
+  stepper($("pcRow"), "Plan changes (not new lines)", draft, "planChanges", 0, syncChoices);
+  stepper($("perksRow"), "Perks added", draft, "perks", 0, renderSummary);
+  stepper($("perksOnlyRow"), "Perks", draft, "perksOnly", 1);
+  const cb = $("cbSteppers"); cb.textContent = "";
+  [["phone","Phone adds"],["upg","Phone upgrades"],["prem","Premium"],["hint","Home internet"],["vmpLines","VMP"],["perks","Perks"],["pull","Pull thru"]]
+    .forEach(([k, l]) => cb.append(stepper(document.createElement("div"), l, cbDraft, k)));
+  syncSale();
+}
+function syncChoices(){
+  const po = draft.phone + draft.planChanges;
+  $("perksOppQ").innerHTML = draft.phone
+    ? `<b>${plural(draft.phone, "new line")}</b> ${draft.phone === 1 ? "is" : "are"} automatically perks ${draft.phone === 1 ? "an opportunity" : "opportunities"}. Did any other lines get a plan change?`
+    : "Did any lines get a plan change?";
+  $("perksHint").textContent = po
+    ? `${plural(po, "perks opportunity", "perks opportunities")} on this sale. Perks added count toward ${po === 1 ? "it" : "them"}.`
+    : "No perks opportunity: each perk added is a straight +1.";
+  renderSummary();
+}
+
+const HINTS = {
+  sale: "One entry per sale. Every sale is 1 pull thru opportunity. Premium only applies to phones; VMP opportunities come from phones and tablets.",
+  perks: "Perks added on their own, like a customer who only adds 3 perks. Counts +3 with no opportunity and isn't a sale.",
+  chargeback: "Enter the amount as a positive number. It's subtracted from net GP, along with any KPIs you set here.",
+  other: "Spiffs, bonuses or GP adjustments that aren't a sale. Doesn't affect KPIs."
+};
+function setMode(m){
+  mode = m;
+  for (const [id, k] of [["modeSale","sale"],["modePerks","perks"],["modeCb","chargeback"],["modeOther","other"]]) $(id).setAttribute("aria-pressed", m === k);
+  $("saleFields").hidden = m !== "sale";
+  $("perksFields").hidden = m !== "perks";
+  $("cbFields").hidden = m !== "chargeback";
+  const needApp = m === "sale" || m === "perks";
+  $("appLabel").textContent = needApp ? "Sales application #" : "Sales application # (optional)";
+  $("fApp").placeholder = needApp ? "Required" : "If it ties to a sale";
+  $("appField").hidden = m === "chargeback";
+  $("noteField").style.gridColumn = m === "chargeback" ? "1 / -1" : "";
+  $("amtLabel").textContent = m === "chargeback" ? "Amount charged back" : "Gross profit";
+  const verb = editing ? "Update" : "Save";
+  $("saveBtn").textContent = `${verb} ${{sale:"sale", perks:"perks", chargeback:"chargeback", other:"GP"}[m]}`;
+  $("saveBtn").className = "primary" + (m === "chargeback" ? " cb" : "");
+  $("modeHint").textContent = HINTS[m];
+}
+$("modeSale").onclick = () => setMode("sale");
+$("modePerks").onclick = () => setMode("perks");
+$("modeCb").onclick = () => setMode("chargeback");
+$("modeOther").onclick = () => setMode("other");
+
+function resetDraft(){
+  Object.assign(draft, BLANK); Object.assign(cbDraft, BLANK_CB);
+  buildSteppers(); syncChoices();
+}
+function clearForm(){
+  $("fAmt").value = ""; $("fDesc").value = ""; $("fApp").value = "";
+  $("fDate").value = month === monthOf(todayStr()) ? todayStr() : month + "-01";
+  resetDraft();
+}
+
+/* ---------- editing ---------- */
+function startEdit(e){
+  if (location.hash === "#history") location.hash = "#tracker";
+  if (e.month !== month) setMonth(e.month);
+  editing = {id: e.id, createdAt: e.createdAt, example: e.example};
+  Object.assign(draft, BLANK); Object.assign(cbDraft, BLANK_CB);
+  $("fDate").value = e.date;
+  $("fAmt").value = Math.abs(N(e.gp)) || "";
+  $("fApp").value = e.app || "";
+  $("fDesc").value = e.desc || "";
+  if (e.kind === "sale"){
+    for (const k of ["phone","upg","hint","tab","watch","prem","vmpOpp","vmpLines","vmpWatch","perks"]) draft[k] = N(e[k]);
+    if (e.tab === undefined && e.watch === undefined) draft.watch = N(e.pull);
+    draft.planChanges = typeof e.planChanges === "number" ? e.planChanges : (e.planChange ? 1 : 0);
+  } else if (e.kind === "perks") draft.perksOnly = Math.max(1, N(e.perks));
+  else if (e.kind === "chargeback") for (const k of Object.keys(BLANK_CB)) cbDraft[k] = Math.abs(N(e[k]));
+  buildSteppers(); syncChoices();
+  $("editBar").hidden = false;
+  $("editText").textContent = `Editing ${(KIND[e.kind] || KIND.other)[1].toLowerCase()}${e.app ? " #" + e.app : ""} from ${e.date.slice(5).replace("-", "/")}`;
+  setMode(KIND[e.kind] ? e.kind : "other");
+  $("entryPanel").scrollIntoView({behavior: "smooth", block: "start"});
+}
+function cancelEdit(){
+  editing = null; $("editBar").hidden = true; clearForm(); setMode(mode);
+}
+$("cancelEdit").onclick = cancelEdit;
+
+$("entryForm").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  if (!db){ toast("Saving isn't available in this view."); return; }
+  const date = $("fDate").value, amt = Math.abs(N($("fAmt").value));
+  if (!date){ toast("Add a date."); return; }
+  const gp = Math.round(amt * 100) / 100;
+  const app = mode === "chargeback" ? "" : $("fApp").value.trim();
+  const base = {date, month: monthOf(date), kind: mode, app, desc: $("fDesc").value.trim(),
+    createdAt: editing ? editing.createdAt || new Date().toISOString() : new Date().toISOString()};
+  if (editing){ base.updatedAt = new Date().toISOString(); if (editing.example) base.example = true; }
+  let doc;
+  if ((mode === "sale" || mode === "perks") && !app){ toast("Enter the sales application #."); $("fApp").focus(); return; }
+  if (mode === "perks"){
+    if (!draft.perksOnly){ toast("Add at least 1 perk."); return; }
+    doc = {...base, gp, perks: draft.perksOnly};
+  } else if (mode === "sale"){
+    if (draft.prem > draft.phone + draft.upg){ toast("Premium can't be more than phones sold (adds + upgrades)."); return; }
+    if (draft.vmpLines > draft.vmpOpp){ toast("VMP added can't be more than VMP opportunities."); return; }
+    const phones = draft.phone + draft.upg, dev = phones + draft.tab;
+    doc = {...base, gp, phone: draft.phone, upg: draft.upg, hint: draft.hint, tab: draft.tab, watch: draft.watch, pull: draft.tab + draft.watch,
+      prem: phones ? draft.prem : 0, vmpOpp: dev ? draft.vmpOpp : 0, vmpLines: dev ? draft.vmpLines : 0, vmpWatch: draft.watch ? draft.vmpWatch : 0,
+      planChanges: draft.planChanges, perksOpp: draft.phone + draft.planChanges, perks: draft.perks};
+  } else if (mode === "chargeback"){
+    const any = Object.values(cbDraft).some(Boolean);
+    if (!gp && !any){ toast("Enter an amount or at least one KPI to take back."); return; }
+    doc = {...base, gp: -gp};
+    for (const [k, v] of Object.entries(cbDraft)) if (v) doc[k] = -v;
+  } else {
+    if (!gp){ toast("Enter a GP amount."); return; }
+    doc = {...base, gp};
+  }
+  const btn = $("saveBtn"); btn.disabled = true;
+  try {
+    if (mode === "sale" || mode === "perks"){
+      const dup = await db.collection("entries").where("app", "==", app).get().catch(() => null);
+      const hit = dup && dup.docs.find(d => d.data().kind === mode && (!editing || d.id !== editing.id));
+      if (hit){ const [, m, d] = hit.data().date.split("-"); toast(`App #${app} is already logged as a ${mode === "sale" ? "sale" : "perks entry"} on ${m}/${d}.`); return; }
+    }
+    if (editing){
+      await db.doc("entries/" + editing.id).set(doc);
+      toast("Entry updated");
+      editing = null; $("editBar").hidden = true;
+    } else {
+      await db.collection("entries").add(doc);
+      toast(monthOf(date) !== month ? `Saved to ${monthName(monthOf(date))}` : {sale:"Sale saved", perks:"Perks saved", chargeback:"Chargeback saved", other:"GP saved"}[mode]);
+    }
+    clearForm(); setMode(mode);
+  } catch(err){
+    toast(err && err.code === "quota_exceeded" ? "Storage is full. Remove old entries to add more." : "Couldn't save. Check your connection and try again.");
+  } finally { btn.disabled = false; }
+});
+
+/* ---------- pay check ---------- */
+$("payForm").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  if (!db) return;
+  const raw = $("fPayroll").value.trim();
+  try { await db.doc("months/" + month).set({...monthData, payrollGp: raw === "" ? null : Number(raw)}); toast(raw === "" ? "Cleared" : "Pay statement saved"); }
+  catch { toast("Couldn't save. Try again."); }
+});
+
+/* ---------- settings ---------- */
+const TFIELDS = {phone:"tPhone", hint:"tHint", vmp:"tVmp", perks:"tPerks", pull:"tPull", premium:"tPrem"};
+function fillSettingsForm(){
+  if (document.activeElement && $("settingsForm").contains(document.activeElement)) return;
+  $("sGoal").value = goal();
+  $("sPct").value = settings.commissionPct || "";
+  const tg = targets();
+  for (const [k, id] of Object.entries(TFIELDS)) $(id).value = isSet(tg[k]) ? tg[k] : "";
+}
+$("settingsForm").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const tg = {};
+  for (const [k, id] of Object.entries(TFIELDS)){ const v = $(id).value.trim(); tg[k] = v === "" ? null : Math.max(0, Number(v)); }
+  const g = Math.max(0, N($("sGoal").value)), pct = Math.max(0, N($("sPct").value));
+  if (!db){ settings = {goal:g, commissionPct:pct, targets:tg}; render(); return; }
+  try {
+    await db.doc("months/" + month).set({...monthData, goal: g, targets: tg});
+    await db.doc("settings/main").set({goal: g, commissionPct: pct, targets: tg});
+    toast(`Targets saved for ${monthName(month)}`);
+  } catch { toast("Couldn't save targets. Try again."); }
+});
+
+/* ---------- month nav ---------- */
+function setMonth(key){
+  month = key;
+  if (!editing) $("fDate").value = month === monthOf(todayStr()) ? todayStr() : month + "-01";
+  entries = []; monthData = {}; loaded = false;
+  render(); fillSettingsForm(); subscribeMonth();
+}
+$("prevMonth").onclick = () => setMonth(shiftMonth(month, -1));
+$("nextMonth").onclick = () => setMonth(shiftMonth(month, 1));
+
+/* ---------- examples + export ---------- */
+$("clearExamples").onclick = async () => {
+  const all = await db.collection("entries").where("example", "==", true).get().catch(() => null);
+  const ids = new Set([...entries.filter(e => e.example).map(e => e.id), ...(all ? all.docs.map(d => d.id) : [])]);
+  for (const id of ids){ try { await db.doc("entries/" + id).delete(); } catch {} }
+  if (editing && ids.has(editing.id)) cancelEdit();
+  toast("Examples cleared");
+};
+$("exportBtn").onclick = () => exportRows(entries, `gp-${month}.csv`);
+$("hExport").onclick = () => exportRows(historyRows(), `gp-history-${$("hRange").value}.csv`);
+async function exportRows(rows, filename){
+  const q = s => `"${String(s ?? "").replace(/"/g, '""')}"`;
+  const lines = [["Date","Type","App #","Customer / note","GP","Phone adds","Upgrades","Premium plans","Home internet","VMP opportunities","VMP added (phones/tablets)","VMP added (watches)","Plan changes","Perks opportunities","Perks","Tablets","Watches","Pull thru"].map(q).join(",")];
+  for (const e of [...rows].sort((a, b) => a.date.localeCompare(b.date)))
+    lines.push([e.date, (KIND[e.kind] || KIND.other)[1], e.app, e.desc, e.gp, N(e.phone), N(e.upg), N(e.prem), N(e.hint), e.kind === "sale" ? N(e.vmpOpp) : "", N(e.vmpLines), N(e.vmpWatch),
+      e.kind === "sale" ? (typeof e.planChanges === "number" ? e.planChanges : (e.planChange ? 1 : 0)) : "", e.kind === "sale" ? perksOppOf(e) : "", N(e.perks), N(e.tab), N(e.watch), N(e.pull)].map(q).join(","));
+  try { await downloads.save({filename, data: lines.join("\n")}); }
+  catch(err){ if (err && err.code !== "declined") toast("Export isn't available here."); }
+}
+
+/* ---------- data ---------- */
+function subscribeMonth(){
+  if (!db) return;
+  unsubEntries && unsubEntries(); unsubMonth && unsubMonth();
+  const key = month;
+  unsubEntries = db.collection("entries").where("month", "==", key).onSnapshot(snap => {
+    if (key !== month) return;
+    entries = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    loaded = true; render();
+  }, () => { loaded = true; render(); });
+  unsubMonth = db.doc("months/" + key).onSnapshot(snap => {
+    if (key !== month) return;
+    monthData = snap.exists ? {...snap.data()} : {};
+    render(); fillSettingsForm();
+  });
+}
+
+/* ---------- history ---------- */
+let allEntries = [], allLoaded = false, unsubAll = null;
+function subscribeAll(){
+  if (!db || unsubAll) return;
+  unsubAll = db.collection("entries").orderBy("date", "desc").limit(1000).onSnapshot(snap => {
+    allEntries = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    allLoaded = true; renderHistory();
+  }, () => { allLoaded = true; renderHistory(); });
+}
+function historyRows(){
+  const range = $("hRange").value, q = $("hSearch").value.trim().toLowerCase();
+  return allEntries.filter(e => (range === "all" || e.month === range) &&
+    (!q || String(e.app || "").toLowerCase().includes(q) || String(e.desc || "").toLowerCase().includes(q)));
+}
+function renderHistory(){
+  if ($("viewHistory").hidden) return;
+  const sel = $("hRange"), cur = sel.value;
+  const months = [...new Set(allEntries.map(e => e.month))].sort().reverse();
+  sel.textContent = "";
+  sel.append(new Option("All time", "all"));
+  for (const m of months) sel.append(new Option(monthName(m), m));
+  sel.value = months.includes(cur) || cur === "all" ? cur : "all";
+
+  const rows = historyRows(), t = totals(rows);
+  const tiles = [
+    ["Sales", t.sales, ""], ["Net GP", fmtK(t.net), `${fmtK(t.added)} added`], ["Chargebacks", t.cb ? fmtK(t.cb) : "$0", ""],
+    ["Phone adds", t.phone, `${t.upg} upgrades`], ["Home internet", t.hint, ""],
+    ["VMP", pctStr(t.vmpAdded, t.vmpOpp), `${t.vmpAdded} of ${t.vmpOpp} opps`],
+    ["Perks", pctStr(t.perks, t.perksOpp), `${t.perks} added · ${t.perksOpp} opps`],
+    ["Pull thru", pctStr(t.pull, t.sales), `${t.pull} devices`],
+    ["Premium", pctStr(t.prem, t.phonesSold), `${t.prem} of ${t.phonesSold} phones`]
+  ];
+  const strip = $("hTotals"); strip.textContent = "";
+  for (const [l, v, sub] of tiles){
+    const d = document.createElement("div");
+    d.innerHTML = `<span class="label"></span><b class="num"></b>${sub ? "<small></small>" : ""}`;
+    d.children[0].textContent = l; d.children[1].textContent = v; if (sub) d.children[2].textContent = sub;
+    strip.append(d);
+  }
+
+  const mb = $("hMonths"); mb.textContent = "";
+  if (!months.length) mb.innerHTML = `<tr><td colspan="10" class="empty">${allLoaded ? "No months logged yet." : "Loading…"}</td></tr>`;
+  for (const m of months){
+    const mt = totals(allEntries.filter(e => e.month === m));
+    const tr = document.createElement("tr"); tr.className = "click"; tr.tabIndex = 0;
+    tr.innerHTML = `<td></td><td class="c">${mt.sales}</td><td class="c ${mt.net < 0 ? "neg" : ""}">${fmtK(mt.net)}</td><td class="c">${mt.phone}</td><td class="c">${mt.upg}</td><td class="c">${mt.hint}</td>
+      <td class="c">${pctStr(mt.vmpAdded, mt.vmpOpp)}</td><td class="c">${pctStr(mt.perks, mt.perksOpp)} <span class="hint">(${mt.perks})</span></td><td class="c">${pctStr(mt.pull, mt.sales)}</td><td class="c">${pctStr(mt.prem, mt.phonesSold)}</td>`;
+    tr.firstElementChild.textContent = monthName(m);
+    const pick = () => { $("hRange").value = m; renderHistory(); };
+    tr.onclick = pick; tr.onkeydown = ev => { if (ev.key === "Enter") pick(); };
+    mb.append(tr);
+  }
+
+  const lb = $("hList"); lb.textContent = "";
+  $("hCount").textContent = `${rows.length} ${rows.length === 1 ? "entry" : "entries"}${allEntries.length >= 1000 ? " (latest 1,000)" : ""}`;
+  $("hExport").hidden = !downloads || !rows.length;
+  if (!rows.length){ lb.innerHTML = `<tr><td colspan="6" class="empty">${allLoaded ? "No entries match." : "Loading history…"}</td></tr>`; return; }
+  for (const e of rows) lb.append(entryRow(e, true));
+}
+$("hRange").onchange = renderHistory;
+$("hSearch").oninput = renderHistory;
+
+/* ---------- pages ---------- */
+function route(){
+  const page = location.hash === "#history" ? "history" : "tracker";
+  $("viewTracker").hidden = page !== "tracker";
+  $("viewHistory").hidden = page !== "history";
+  $("monthNav").hidden = page !== "tracker";
+  $("exampleBanner").style.display = page === "tracker" ? "" : "none";
+  $("tabTracker").removeAttribute("aria-current"); $("tabHistory").removeAttribute("aria-current");
+  $(page === "tracker" ? "tabTracker" : "tabHistory").setAttribute("aria-current", "page");
+  if (page === "history"){ subscribeAll(); renderHistory(); }
+}
+window.addEventListener("hashchange", route);
+
+function boot(){
+  $("fDate").value = todayStr();
+  setMode("sale"); resetDraft(); fillSettingsForm(); render(); route();
+  (async () => {
+    db = await claude.use("db").catch(() => null);
+    if (!db){ loaded = true; $("readOnly").hidden = false; $("readOnly").textContent = "Saving isn't available in this view. Open the tracker in Claude while signed in to log entries."; render(); return; }
+    const user = await claude.use("user").catch(() => null);
+    if (user && user.isOwner && !(await user.isOwner())){
+      canWrite = false; $("readOnly").hidden = false;
+      for (const f of ["entryForm","payForm","settingsForm"]) $(f).querySelectorAll("input,button").forEach(el => el.disabled = true);
+    }
+    downloads = await claude.use("downloads").catch(() => null);
+    db.doc("settings/main").onSnapshot(snap => {
+      if (snap.exists){
+        const d = snap.data();
+        settings = {goal: d.goal ?? 15000, commissionPct: d.commissionPct ?? 0, targets: {...DEFAULT_TARGETS, ...(d.targets || {})}};
+        render(); fillSettingsForm();
+      }
+    });
+    subscribeMonth();
+    route();
+  })();
+}
+boot();
+</script>
