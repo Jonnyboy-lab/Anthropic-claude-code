@@ -81,11 +81,5 @@ function mapsLink(place) {
   return `https://www.google.com/maps/search/?api=1&query=${q}&center=${place.lat},${place.lon}`;
 }
 
-function mapsSearchLink(food, origin) {
-  const q = encodeURIComponent(food.search);
-  return origin
-    ? `https://www.google.com/maps/search/${q}/@${origin.lat},${origin.lon},13z`
-    : `https://www.google.com/maps/search/${q}+near+me`;
-}
 
 if (typeof module !== "undefined") module.exports = { buildOverpassQuery, distanceMiles };

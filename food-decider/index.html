@@ -2,71 +2,55 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Food Oracle</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>What Sounds Good?</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Work+Sans:wght@400;500;600&display=swap" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <main class="card" id="app">
+  <main class="card">
     <section id="screen-start" class="screen">
-      <div class="oracle">🔮</div>
-      <h1>The Food Oracle</h1>
-      <p class="muted">Don't know what you want to eat? Answer my questions and I'll read your cravings, then send you somewhere to eat.</p>
-      <button class="btn primary" id="start-btn">Read my mind</button>
+      <div class="hero">🍽️</div>
+      <p class="eyebrow">10 quick questions</p>
+      <h1>What Sounds Good?</h1>
+      <p class="muted">Stop scrolling menus. Answer a few quick questions about what you feel like, and I'll show you what you're leaning toward and where to get it.</p>
+      <button class="btn primary" id="start-btn" type="button">Help me pick</button>
     </section>
-
-    <section id="screen-question" class="screen hidden">
-      <div class="oracle small-oracle" id="oracle-face">🔮</div>
-      <p class="muted small" id="question-count"></p>
-      <h2 id="question-text"></h2>
+  
+    <section id="screen-question" class="screen" hidden>
+      <div class="progress"><div class="progress-fill" id="progress"></div></div>
+      <p class="eyebrow" id="qcount"></p>
+      <h2 id="qtext"></h2>
       <div class="answers" id="answers"></div>
-      <div class="confidence">
-        <span class="muted small">Oracle's confidence</span>
-        <div class="progress"><div class="progress-bar" id="confidence-bar"></div></div>
+      <div class="q-nav">
+        <button class="btn link" id="back-btn" type="button">← Back</button>
+        <button class="btn link" id="skip-btn" type="button">Show my options now →</button>
       </div>
-      <button class="btn link" id="undo-btn">← Undo last answer</button>
     </section>
-
-    <section id="screen-guess" class="screen hidden">
-      <p class="muted small" id="guess-intro"></p>
-      <div class="hero-emoji" id="guess-emoji"></div>
-      <h1 id="guess-name"></h1>
-      <p class="muted" id="guess-prompt">Am I right?</p>
-      <div class="actions">
-        <button class="btn primary" id="guess-yes">Yes! 🎉</button>
-        <button class="btn" id="guess-no">No, keep going</button>
-      </div>
-      <button class="btn link" id="guess-undo">← Undo last answer</button>
-    </section>
-
-    <section id="screen-stumped" class="screen hidden">
-      <div class="oracle">😵‍💫</div>
-      <h2>You've stumped the Oracle!</h2>
-      <p class="muted">Is it one of these?</p>
-      <div class="answers" id="stumped-options"></div>
-      <button class="btn link" id="stumped-restart">↺ Start over</button>
-    </section>
-
-    <section id="screen-distance" class="screen hidden">
-      <div class="hero-emoji" id="distance-emoji"></div>
-      <h2>How far are you willing to travel for it?</h2>
-      <div class="answers" id="distance-options"></div>
-    </section>
-
-    <section id="screen-result" class="screen hidden">
-      <p class="muted small">The Oracle has spoken. You're eating…</p>
-      <div class="hero-emoji" id="result-emoji"></div>
-      <h1 id="result-name"></h1>
-      <p class="muted small" id="result-distance"></p>
-
-      <div id="places"></div>
-
-      <form id="address-form" class="address-form">
-        <input id="address-input" type="text" placeholder="Not here? Enter a city / zip code" autocomplete="postal-code" />
-        <button class="btn" type="submit">Search</button>
+  
+    <section id="screen-result" class="screen" hidden>
+      <p class="eyebrow">Tonight you're leaning toward</p>
+      <div class="chips" id="leanings"></div>
+  
+      <form class="where" id="where-form">
+        <label for="where">Where are you? City or zip, or leave blank to search near you</label>
+        <input id="where" type="text" placeholder="e.g. Austin, TX or 10001" autocomplete="postal-code">
+        <select id="distance" aria-label="How far you'll travel" hidden>
+          <option value="1">Within 1 mi</option>
+          <option value="5" selected>Within 5 mi</option>
+          <option value="15">Within 15 mi</option>
+          <option value="30">Within 30 mi</option>
+        </select>
       </form>
-
-      <button class="btn link" id="restart-btn">↺ Ask the Oracle again</button>
+  
+      <div class="options" id="top-option"></div>
+      <p class="eyebrow section-label">Other options that fit</p>
+      <div class="options" id="other-options"></div>
+  
+      <div class="q-nav">
+        <button class="btn link" id="edit-btn" type="button">← Change answers</button>
+        <button class="btn link" id="restart-btn" type="button">↺ Start over</button>
+      </div>
     </section>
   </main>
 

@@ -1,67 +1,57 @@
 // Run with: node test.js
 const assert = require("assert");
 const { FOODS } = require("./foods.js");
-const { QUESTIONS, mealForHour, beliefs, nextMove } = require("./decider.js");
+const { QUESTIONS, QUESTION_COUNT, mealForHour, rank, nextQuestion, leanings, results } = require("./decider.js");
 const { buildOverpassQuery, distanceMiles } = require("./places.js");
 
-// An honest player who is secretly thinking of `target`.
+// Someone who'd be happiest with `target` answering honestly.
 function honestAnswer(q, target) {
   if (q.filter) return 0; // a real person only says yes to a requirement they have
   const m = q.match(target);
-  return [1, 0.75, 0.25, 0].reduce((best, v) => (Math.abs(v - m) < Math.abs(best - m) ? v : best));
+  return m >= 0.85 ? 1 : m >= 0.5 ? 0.7 : 0;
 }
 
-function play(target, session, rand) {
-  let wrongGuesses = 0;
-  for (let turn = 0; turn < 60; turn++) {
-    const move = nextMove(FOODS, session, rand);
-    if (move.type === "guess") {
-      if (move.food.name === target.name) return { found: true, questions: session.history.length, wrongGuesses };
-      wrongGuesses++;
-      session.rejected.push(move.food.name);
-      session.lastGuessAt = session.history.length;
-    } else if (move.type === "stumped") {
-      return { found: move.options.some((f) => f.name === target.name), questions: session.history.length, wrongGuesses, stumped: true };
-    } else {
-      session.history.push({ id: move.question.id, answer: honestAnswer(move.question, target) });
-    }
-  }
-  throw new Error("game never ended for " + target.name);
+function play(target, rand) {
+  const session = { meal: target.meals[0], history: [] };
+  for (let q; (q = nextQuestion(FOODS, session, rand)); ) session.history.push({ id: q.id, answer: honestAnswer(q, target) });
+  return session;
 }
 
-// The oracle should find every dish, mostly on the first or second guess.
-let totalQ = 0, totalWrong = 0;
+// After the questions, the dish that fits you best should be in the top 4 options.
+let inTop1 = 0;
 for (const target of FOODS) {
-  const rand = () => 0; // deterministic question choice
-  const result = play(target, { meal: target.meals[0], history: [], rejected: [] }, rand);
-  assert(result.found, `never found ${target.name}: ${JSON.stringify(result)}`);
-  totalQ += result.questions;
-  totalWrong += result.wrongGuesses;
+  const session = play(target, () => 0);
+  assert(session.history.length <= QUESTION_COUNT);
+  const names = results(FOODS, session).map((r) => r.food.name);
+  assert(names.includes(target.name), `${target.name} not in options: ${names.join(", ")}`);
+  if (names[0] === target.name) inTop1++;
 }
-const avgQ = totalQ / FOODS.length, avgWrong = totalWrong / FOODS.length;
-console.log(`Found all ${FOODS.length} dishes. Avg questions: ${avgQ.toFixed(1)}, avg wrong guesses: ${avgWrong.toFixed(2)}`);
-assert(avgQ < 18, "too many questions on average");
-assert(avgWrong < 1.5, "too many wrong guesses on average");
+console.log(`Best fit was the #1 option for ${inTop1}/${FOODS.length} dishes, and in the top 4 for all.`);
+assert(inTop1 / FOODS.length > 0.6);
 
-// Same with random question order, so variety doesn't break it.
-for (const target of FOODS) {
-  const result = play(target, { meal: target.meals[0], history: [], rejected: [] }, Math.random);
-  assert(result.found, `random play never found ${target.name}`);
+// Random question order still lands the best fit in the top 4 almost always.
+let misses = 0;
+for (let i = 0; i < 5; i++) for (const target of FOODS) {
+  if (!results(FOODS, play(target, Math.random)).some((r) => r.food.name === target.name)) misses++;
 }
+assert(misses / (5 * FOODS.length) < 0.05, `random-order misses: ${misses}`);
 
-// Saying yes to "vegan" removes every non-vegan dish from contention.
-const vegan = beliefs(FOODS, { history: [{ id: "vegan", answer: 1 }], rejected: [] });
-for (const r of vegan) if (!r.food.diets.includes("vegan")) assert(r.p < 0.01, r.food.name);
+// Results carry a 0–1 match score, best first, and reasons that echo your answers.
+const s = { meal: "dinner", history: [{ id: "bread", answer: 1 }, { id: "greasy", answer: 1 }, { id: "spicy", answer: 0 }] };
+const r = results(FOODS, s);
+assert(r[0].match <= 1 && r[0].match > r[3].match - 1e-9);
+assert(r[0].reasons.includes("Bread") && r[0].reasons.includes("Greasy"), r[0].reasons);
+assert.deepStrictEqual(leanings(s), { yes: ["Bread", "Greasy"], no: ["Not spicy"] });
 
-// Rejected guesses are out for good.
-const after = beliefs(FOODS, { history: [], rejected: ["Pizza"] });
-assert.strictEqual(after.find((r) => r.food.name === "Pizza").p, 0);
+// Saying yes to "vegan" pushes every non-vegan dish out of the running.
+const vegan = rank(FOODS, { history: [{ id: "vegan", answer: 1 }] });
+for (const x of vegan) if (!x.food.diets.includes("vegan")) assert(x.p < 0.01, x.food.name);
 
-// Every question has a unique id and returns values in [0, 1] for every food.
+// Questions are well-formed.
 assert.strictEqual(new Set(QUESTIONS.map((q) => q.id)).size, QUESTIONS.length);
-for (const q of QUESTIONS) for (const f of FOODS) {
-  const m = q.match(f);
-  assert(m >= 0 && m <= 1, `${q.id} on ${f.name} = ${m}`);
+for (const q of QUESTIONS) {
+  assert(q.yes && q.no, q.id);
+  for (const f of FOODS) assert(q.match(f) >= 0 && q.match(f) <= 1, `${q.id} on ${f.name}`);
 }
 
 assert.strictEqual(mealForHour(8), "breakfast");

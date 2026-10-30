@@ -1,206 +1,151 @@
-// UI controller: runs the oracle's question/guess loop, then finds a place to eat.
+// UI controller: asks the questions, then shows the options you're leaning
+// toward with links to find each one. If places.js is loaded and the browser
+// allows it, each option can also list real restaurants nearby.
 
 const $ = (id) => document.getElementById(id);
-const DISTANCES = [
-  { miles: 1, label: "🚶 Walking distance (1 mi)" },
-  { miles: 5, label: "🚗 Short drive (5 mi)" },
-  { miles: 15, label: "🛣️ I'll drive a bit (15 mi)" },
-  { miles: 30, label: "✈️ Anywhere for good food (30 mi)" },
-];
-const THINKING_FACES = ["🔮", "🤔", "🧐", "✨", "🔮", "👀"];
+const NEARBY = typeof findPlaces === "function" && !window.NO_NEARBY_SEARCH;
 
 let session;
-let currentGuess = null;
-let chosen = { food: null, miles: 5 };
+let currentQuestion;
+let linkUpdaters = [];
 
-function show(screen) {
-  for (const el of document.querySelectorAll(".screen")) el.classList.add("hidden");
-  $(`screen-${screen}`).classList.remove("hidden");
+function show(name) {
+  for (const el of document.querySelectorAll(".screen")) el.hidden = el.id !== `screen-${name}`;
+  window.scrollTo(0, 0);
 }
 
-function button(label, onClick, extraClass = "") {
-  const btn = document.createElement("button");
-  btn.className = `btn option ${extraClass}`;
-  btn.textContent = label;
-  btn.onclick = onClick;
-  return btn;
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
 }
 
-function newGame() {
-  session = { meal: mealForHour(new Date().getHours()), history: [], rejected: [], lastGuessAt: 0 };
-  step();
+function link(label, href, cls = "btn small") {
+  const a = el("a", cls, label);
+  a.href = href;
+  a.target = "_blank";
+  a.rel = "noopener";
+  return a;
 }
 
-// Ask the oracle what to do next and show it.
-function step() {
-  const move = nextMove(FOODS, session);
-  if (move.type === "question") showQuestion(move.question);
-  else if (move.type === "guess") showGuess(move.food);
-  else showStumped(move.options);
+function start() {
+  session = { meal: mealForHour(new Date().getHours()), history: [] };
+  ask();
 }
 
-function showQuestion(q) {
+function ask() {
+  currentQuestion = nextQuestion(FOODS, session);
+  if (!currentQuestion) return showResults();
   const n = session.history.length;
-  $("oracle-face").textContent = THINKING_FACES[n % THINKING_FACES.length];
-  $("question-count").textContent = `Question ${n + 1}`;
-  $("question-text").textContent = q.text;
-  $("confidence-bar").style.width = `${Math.round(beliefs(FOODS, session)[0].p * 100)}%`;
-  $("undo-btn").style.visibility = n ? "visible" : "hidden";
-
-  const box = $("answers");
-  box.innerHTML = "";
-  for (const a of ANSWERS) {
-    box.appendChild(button(a.label, () => {
-      session.history.push({ id: q.id, answer: a.value });
-      step();
-    }));
-  }
+  $("progress").style.width = `${(n / QUESTION_COUNT) * 100}%`;
+  $("qcount").textContent = `Question ${n + 1} of ${QUESTION_COUNT}`;
+  $("qtext").textContent = currentQuestion.text;
+  $("back-btn").style.visibility = n ? "visible" : "hidden";
+  $("skip-btn").style.visibility = n >= MIN_BEFORE_SKIP ? "visible" : "hidden";
+  $("answers").replaceChildren(...ANSWERS.map((a) => {
+    const b = el("button", "btn", a.label);
+    b.type = "button";
+    b.onclick = () => {
+      session.history.push({ id: currentQuestion.id, answer: a.value });
+      ask();
+    };
+    return b;
+  }));
   show("question");
 }
 
-function showGuess(food) {
-  currentGuess = food;
-  const wrong = session.rejected.length;
-  $("guess-intro").textContent = wrong ? "Hmm, let me try again… I think you're craving" : `After ${session.history.length} questions, I think you're craving`;
-  $("guess-emoji").textContent = food.emoji;
-  $("guess-name").textContent = `${food.name}?`;
-  show("guess");
-}
-
-function showStumped(options) {
-  const box = $("stumped-options");
-  box.innerHTML = "";
-  for (const food of options) box.appendChild(button(`${food.emoji} ${food.name}`, () => pickFood(food)));
-  if (!options.length) box.textContent = "I've run out of ideas!";
-  show("stumped");
-}
-
-function undo() {
-  if (!session.history.length) return;
+function back() {
   session.history.pop();
-  // Forget guesses made after the answer being undone.
-  if (session.lastGuessAt > session.history.length) session.lastGuessAt = session.history.length;
-  step();
+  ask();
 }
 
-function pickFood(food) {
-  chosen.food = food;
-  $("distance-emoji").textContent = food.emoji;
-  const box = $("distance-options");
-  box.innerHTML = "";
-  for (const d of DISTANCES) {
-    box.appendChild(button(d.label, () => {
-      chosen.miles = d.miles;
-      showResult();
-    }));
-  }
-  show("distance");
-}
+function showResults() {
+  const { yes, no } = leanings(session);
+  const chips = [...yes.map((t) => el("span", "chip", t)), ...no.map((t) => el("span", "chip no", t))];
+  $("leanings").replaceChildren(...(chips.length ? chips : [el("span", "chip no", "Anything goes")]));
 
-function showResult() {
-  const food = chosen.food;
-  $("result-emoji").textContent = food.emoji;
-  $("result-name").textContent = food.name;
-  $("result-distance").textContent = `Within ${chosen.miles} mi`;
+  linkUpdaters = [];
+  const options = results(FOODS, session);
+  $("top-option").replaceChildren(optionCard(options[0], true));
+  $("other-options").replaceChildren(...options.slice(1).map((o) => optionCard(o, false)));
   show("result");
-  searchFrom(getBrowserLocation);
 }
 
-function setPlacesMessage(text, cls = "status") {
-  $("places").innerHTML = `<p class="${cls}"></p>`;
-  $("places").firstChild.textContent = text;
+function optionCard({ food, match, reasons }, isTop) {
+  const card = el("article", isTop ? "option top" : "option");
+  const head = el("div", "option-head");
+  const title = el("div", "option-title");
+  if (isTop) title.append(el("p", "eyebrow", "Your best match"));
+  title.append(el("h3", null, food.name), el("p", "match", `${Math.round(match * 100)}% match`));
+  head.append(el("span", "option-emoji", food.emoji), title);
+  card.append(head);
+
+  if (reasons.length) {
+    card.append(el("div", "chips"));
+    card.lastChild.append(...reasons.slice(0, 4).map((r) => el("span", "chip", r)));
+  }
+
+  const actions = el("div", "option-actions");
+  const places = el("div", "places");
+  if (NEARBY) {
+    const find = el("button", isTop ? "btn small primary" : "btn small", "📍 Find restaurants");
+    find.type = "button";
+    find.onclick = () => searchNearby(food, places);
+    actions.append(find);
+  }
+  const gmaps = link("Google Maps", "#", !NEARBY && isTop ? "btn small primary" : "btn small");
+  const yelp = link("Yelp", "#");
+  actions.append(gmaps, yelp);
+  card.append(actions, places);
+
+  // Keep the map links pointed at whatever location is typed in.
+  const refresh = () => {
+    const where = $("where").value.trim();
+    gmaps.href = `https://www.google.com/maps/search/${encodeURIComponent(`${food.search} near ${where || "me"}`)}`;
+    yelp.href = `https://www.yelp.com/search?find_desc=${encodeURIComponent(food.search)}` +
+      (where ? `&find_loc=${encodeURIComponent(where)}` : "");
+  };
+  refresh();
+  linkUpdaters.push(refresh);
+  return card;
 }
 
-async function searchFrom(getOrigin) {
-  const { food, miles } = chosen;
-  setPlacesMessage("📍 Finding where you are…");
-  let origin = null;
+async function searchNearby(food, box) {
+  const where = $("where").value.trim();
+  const miles = Number($("distance").value);
+  const status = (text, cls = "status") => box.replaceChildren(el("p", cls, text));
+  status(where ? `Looking up ${where}…` : "Finding where you are…");
   try {
-    origin = await getOrigin();
-    setPlacesMessage(`🔮 Searching for ${food.name.toLowerCase()} within ${miles} mi…`);
-    const places = await findPlaces(food, origin, miles);
-    renderPlaces(food, places, origin, miles);
+    const origin = where ? await geocode(where) : await getBrowserLocation();
+    status(`Searching within ${miles} mi…`);
+    const found = await findPlaces(food, origin, miles);
+    if (!found.length) return status(`No ${food.name.toLowerCase()} spots found within ${miles} mi. Try a bigger distance or the map links.`);
+    box.replaceChildren(...found.slice(0, 5).map(placeRow));
   } catch (err) {
-    setPlacesMessage(err.message, "error");
-    appendMapsFallback(food, origin);
+    status(err.message, "status error");
   }
 }
 
-function renderPlaces(food, places, origin, miles) {
-  const box = $("places");
-  box.innerHTML = "";
-  if (!places.length) {
-    setPlacesMessage(`No ${food.name.toLowerCase()} spots found within ${miles} mi.`);
-    appendMapsFallback(food, origin);
-    return;
-  }
-
-  const top = places[0];
-  const winner = document.createElement("div");
-  winner.className = "winner";
-  winner.innerHTML = `<p class="muted small">Go to</p><h2></h2><p class="muted small meta"></p><a class="btn primary" target="_blank" rel="noopener">Get directions</a>`;
-  winner.querySelector("h2").textContent = top.name;
-  winner.querySelector(".meta").textContent = [`${top.miles.toFixed(1)} mi away`, top.address, top.hours].filter(Boolean).join(" · ");
-  winner.querySelector("a").href = mapsLink(top);
-  box.appendChild(winner);
-
-  if (places.length > 1) {
-    const details = document.createElement("details");
-    details.className = "runners";
-    details.innerHTML = `<summary>Other spots nearby (${Math.min(places.length - 1, 7)})</summary><ul class="place-list"></ul>`;
-    for (const p of places.slice(1, 8)) details.querySelector("ul").appendChild(placeItem(p));
-    box.appendChild(details);
-  }
-  appendMapsFallback(food, origin, "See more on Google Maps →");
+function placeRow(p) {
+  const row = el("div", "place");
+  const head = el("div", "place-head");
+  head.append(el("span", null, p.name), el("span", null, `${p.miles.toFixed(1)} mi`));
+  row.append(head);
+  const meta = [p.address, p.hours].filter(Boolean).join(" · ");
+  if (meta) row.append(el("div", "place-meta", meta));
+  const links = el("div", "place-meta");
+  links.append(link("Directions", mapsLink(p), ""));
+  if (/^https?:\/\//.test(p.website)) links.append(" · ", link("Website", p.website, ""));
+  row.append(links);
+  return row;
 }
 
-function placeItem(p) {
-  const li = document.createElement("li");
-  li.className = "place";
-  li.innerHTML = `
-    <div class="place-head"><span class="name"></span><span class="dist"></span></div>
-    <div class="place-meta"></div>
-    <div class="place-meta links"><a target="_blank" rel="noopener">Directions</a></div>`;
-  li.querySelector(".name").textContent = p.name;
-  li.querySelector(".dist").textContent = `${p.miles.toFixed(1)} mi`;
-  li.querySelector(".place-meta").textContent = [p.cuisine, p.address, p.hours].filter(Boolean).join(" · ");
-  li.querySelector("a").href = mapsLink(p);
-  if (p.website && /^https?:\/\//.test(p.website)) {
-    const site = document.createElement("a");
-    site.href = p.website;
-    site.target = "_blank";
-    site.rel = "noopener";
-    site.textContent = "Website";
-    li.querySelector(".links").append(" · ", site);
-  }
-  return li;
-}
-
-function appendMapsFallback(food, origin, label = `Search “${food.search}” on Google Maps →`) {
-  const p = document.createElement("p");
-  p.className = "status";
-  const a = document.createElement("a");
-  a.href = mapsSearchLink(food, origin);
-  a.target = "_blank";
-  a.rel = "noopener";
-  a.textContent = label;
-  p.appendChild(a);
-  $("places").appendChild(p);
-}
-
-$("start-btn").onclick = newGame;
-$("undo-btn").onclick = undo;
-$("guess-undo").onclick = undo;
-$("guess-yes").onclick = () => pickFood(currentGuess);
-$("guess-no").onclick = () => {
-  session.rejected.push(currentGuess.name);
-  session.lastGuessAt = session.history.length;
-  step();
-};
-$("stumped-restart").onclick = () => show("start");
+$("distance").hidden = !NEARBY;
+$("start-btn").onclick = start;
+$("back-btn").onclick = back;
+$("skip-btn").onclick = showResults;
+$("edit-btn").onclick = () => { session.history.pop(); ask(); };
 $("restart-btn").onclick = () => show("start");
-$("address-form").onsubmit = (e) => {
-  e.preventDefault();
-  const q = $("address-input").value.trim();
-  if (q) searchFrom(() => geocode(q));
-};
+$("where").oninput = () => linkUpdaters.forEach((f) => f());
+$("where-form").onsubmit = (e) => e.preventDefault();
