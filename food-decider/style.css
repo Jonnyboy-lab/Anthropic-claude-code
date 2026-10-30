@@ -93,7 +93,7 @@ h2 { margin: 8px 0 20px; font-size: 1.4rem; }
   color: var(--text);
 }
 
-#places { margin-top: 20px; text-align: left; }
+#places { margin: 20px 0 12px; text-align: left; }
 .status { text-align: center; color: var(--muted); }
 .error { text-align: center; color: #dc2626; }
 .place-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
@@ -109,3 +109,16 @@ h2 { margin: 8px 0 20px; font-size: 1.4rem; }
 .runners { margin-top: 24px; text-align: left; }
 .runners summary { cursor: pointer; color: var(--muted); }
 .runners li { padding: 4px 0; }
+
+/* Oracle */
+.oracle { font-size: 5rem; line-height: 1.1; animation: float 3s ease-in-out infinite; }
+.small-oracle { font-size: 3.2rem; }
+@keyframes float { 50% { transform: translateY(-8px); } }
+@media (prefers-reduced-motion: reduce) { .oracle { animation: none; } }
+.answers { display: grid; gap: 8px; }
+.answers .option { justify-content: center; text-align: center; }
+.confidence { margin-top: 20px; display: grid; gap: 6px; }
+.winner { text-align: center; border: 2px solid var(--accent); border-radius: 16px; padding: 16px; }
+.winner h2 { margin: 0 0 4px; }
+.winner .btn { display: inline-block; margin-top: 10px; text-decoration: none; }
+.winner .btn.primary { color: #fff; }

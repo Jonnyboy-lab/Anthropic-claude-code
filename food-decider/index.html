@@ -3,50 +3,70 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>What Should I Eat?</title>
+  <title>The Food Oracle</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main class="card" id="app">
     <section id="screen-start" class="screen">
-      <div class="hero-emoji">🍽️</div>
-      <h1>What should I eat?</h1>
-      <p class="muted">Answer a few quick questions and we'll pick your food — and find a place to get it.</p>
-      <button class="btn primary" id="start-btn">Let's decide</button>
+      <div class="oracle">🔮</div>
+      <h1>The Food Oracle</h1>
+      <p class="muted">Don't know what you want to eat? Answer my questions and I'll read your cravings, then send you somewhere to eat.</p>
+      <button class="btn primary" id="start-btn">Read my mind</button>
     </section>
 
     <section id="screen-question" class="screen hidden">
-      <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+      <div class="oracle small-oracle" id="oracle-face">🔮</div>
       <p class="muted small" id="question-count"></p>
       <h2 id="question-text"></h2>
-      <div class="options" id="options"></div>
-      <button class="btn link" id="back-btn">← Back</button>
+      <div class="answers" id="answers"></div>
+      <div class="confidence">
+        <span class="muted small">Oracle's confidence</span>
+        <div class="progress"><div class="progress-bar" id="confidence-bar"></div></div>
+      </div>
+      <button class="btn link" id="undo-btn">← Undo last answer</button>
+    </section>
+
+    <section id="screen-guess" class="screen hidden">
+      <p class="muted small" id="guess-intro"></p>
+      <div class="hero-emoji" id="guess-emoji"></div>
+      <h1 id="guess-name"></h1>
+      <p class="muted" id="guess-prompt">Am I right?</p>
+      <div class="actions">
+        <button class="btn primary" id="guess-yes">Yes! 🎉</button>
+        <button class="btn" id="guess-no">No, keep going</button>
+      </div>
+      <button class="btn link" id="guess-undo">← Undo last answer</button>
+    </section>
+
+    <section id="screen-stumped" class="screen hidden">
+      <div class="oracle">😵‍💫</div>
+      <h2>You've stumped the Oracle!</h2>
+      <p class="muted">Is it one of these?</p>
+      <div class="answers" id="stumped-options"></div>
+      <button class="btn link" id="stumped-restart">↺ Start over</button>
+    </section>
+
+    <section id="screen-distance" class="screen hidden">
+      <div class="hero-emoji" id="distance-emoji"></div>
+      <h2>How far are you willing to travel for it?</h2>
+      <div class="answers" id="distance-options"></div>
     </section>
 
     <section id="screen-result" class="screen hidden">
-      <p class="muted small">You should eat…</p>
+      <p class="muted small">The Oracle has spoken. You're eating…</p>
       <div class="hero-emoji" id="result-emoji"></div>
       <h1 id="result-name"></h1>
-      <ul class="reasons" id="result-reasons"></ul>
-
-      <div class="actions">
-        <button class="btn primary" id="locate-btn">📍 Find places near me</button>
-        <button class="btn" id="next-btn">Not feeling it — next idea</button>
-      </div>
-
-      <form id="address-form" class="address-form">
-        <input id="address-input" type="text" placeholder="…or enter a city / zip code" autocomplete="postal-code" />
-        <button class="btn" type="submit">Search</button>
-      </form>
+      <p class="muted small" id="result-distance"></p>
 
       <div id="places"></div>
 
-      <details class="runners">
-        <summary>Other good options</summary>
-        <ol id="runner-ups"></ol>
-      </details>
+      <form id="address-form" class="address-form">
+        <input id="address-input" type="text" placeholder="Not here? Enter a city / zip code" autocomplete="postal-code" />
+        <button class="btn" type="submit">Search</button>
+      </form>
 
-      <button class="btn link" id="restart-btn">↺ Start over</button>
+      <button class="btn link" id="restart-btn">↺ Ask the Oracle again</button>
     </section>
   </main>
 

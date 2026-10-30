@@ -1,104 +1,109 @@
-// UI controller: walks through the questions, shows the pick, finds places.
+// UI controller: runs the oracle's question/guess loop, then finds a place to eat.
 
 const $ = (id) => document.getElementById(id);
-const state = { step: 0, answers: {}, ranked: [], pickIndex: 0 };
+const DISTANCES = [
+  { miles: 1, label: "🚶 Walking distance (1 mi)" },
+  { miles: 5, label: "🚗 Short drive (5 mi)" },
+  { miles: 15, label: "🛣️ I'll drive a bit (15 mi)" },
+  { miles: 30, label: "✈️ Anywhere for good food (30 mi)" },
+];
+const THINKING_FACES = ["🔮", "🤔", "🧐", "✨", "🔮", "👀"];
+
+let session;
+let currentGuess = null;
+let chosen = { food: null, miles: 5 };
 
 function show(screen) {
   for (const el of document.querySelectorAll(".screen")) el.classList.add("hidden");
   $(`screen-${screen}`).classList.remove("hidden");
 }
 
-function renderQuestion() {
-  const q = QUESTIONS[state.step];
-  $("progress-bar").style.width = `${(state.step / QUESTIONS.length) * 100}%`;
-  $("question-count").textContent = `Question ${state.step + 1} of ${QUESTIONS.length}`;
-  $("question-text").textContent = q.text;
+function button(label, onClick, extraClass = "") {
+  const btn = document.createElement("button");
+  btn.className = `btn option ${extraClass}`;
+  btn.textContent = label;
+  btn.onclick = onClick;
+  return btn;
+}
 
-  const box = $("options");
+function newGame() {
+  session = { meal: mealForHour(new Date().getHours()), history: [], rejected: [], lastGuessAt: 0 };
+  step();
+}
+
+// Ask the oracle what to do next and show it.
+function step() {
+  const move = nextMove(FOODS, session);
+  if (move.type === "question") showQuestion(move.question);
+  else if (move.type === "guess") showGuess(move.food);
+  else showStumped(move.options);
+}
+
+function showQuestion(q) {
+  const n = session.history.length;
+  $("oracle-face").textContent = THINKING_FACES[n % THINKING_FACES.length];
+  $("question-count").textContent = `Question ${n + 1}`;
+  $("question-text").textContent = q.text;
+  $("confidence-bar").style.width = `${Math.round(beliefs(FOODS, session)[0].p * 100)}%`;
+  $("undo-btn").style.visibility = n ? "visible" : "hidden";
+
+  const box = $("answers");
   box.innerHTML = "";
-  for (const opt of q.options) {
-    const btn = document.createElement("button");
-    btn.className = "btn option";
-    if (q.id in state.answers && state.answers[q.id] === opt.value) btn.classList.add("selected");
-    btn.innerHTML = `<span class="emoji">${opt.emoji}</span><span></span>`;
-    btn.lastChild.textContent = opt.label;
-    btn.onclick = () => answer(q.id, opt.value);
-    box.appendChild(btn);
+  for (const a of ANSWERS) {
+    box.appendChild(button(a.label, () => {
+      session.history.push({ id: q.id, answer: a.value });
+      step();
+    }));
   }
   show("question");
 }
 
-function answer(id, value) {
-  state.answers[id] = value;
-  state.step++;
-  if (state.step < QUESTIONS.length) renderQuestion();
-  else decide();
+function showGuess(food) {
+  currentGuess = food;
+  const wrong = session.rejected.length;
+  $("guess-intro").textContent = wrong ? "Hmm, let me try again… I think you're craving" : `After ${session.history.length} questions, I think you're craving`;
+  $("guess-emoji").textContent = food.emoji;
+  $("guess-name").textContent = `${food.name}?`;
+  show("guess");
 }
 
-function decide() {
-  state.ranked = rankFoods(FOODS, state.answers);
-  state.pickIndex = 0;
-  renderResult();
+function showStumped(options) {
+  const box = $("stumped-options");
+  box.innerHTML = "";
+  for (const food of options) box.appendChild(button(`${food.emoji} ${food.name}`, () => pickFood(food)));
+  if (!options.length) box.textContent = "I've run out of ideas!";
+  show("stumped");
 }
 
-function reasonsFor(food, a) {
-  const r = [];
-  if (a.bread === 2 && food.bread === 2) r.push("🍞 Plenty of bread");
-  if (a.bread === 0 && food.bread === 0) r.push("🚫 No bread");
-  if (a.greasy === 2 && food.greasy === 2) r.push("🍟 Nice and greasy");
-  if (a.greasy === 0 && food.greasy === 0) r.push("🥬 Light");
-  if (a.spicy === 2 && food.spicy === 2) r.push("🔥 Spicy");
-  if (a.spicy === 0 && food.spicy === 0) r.push("🧊 Mild");
-  if (a.diet && a.diet !== "any") r.push(`✅ ${a.diet[0].toUpperCase() + a.diet.slice(1)} options`);
-  if (a.budget != null && food.price <= a.budget) r.push(`💵 Fits a ${"$".repeat(a.budget)} budget`);
-  if (a.speed && a.speed === food.speed) r.push(food.speed === "fast" ? "🏃 Quick" : "🪑 Sit-down");
-  if (a.hunger === 2 && food.heavy === 2) r.push("😋 Filling");
-  if (a.novelty === 2 && food.novelty === 2) r.push("🚀 Something new");
-  return r;
+function undo() {
+  if (!session.history.length) return;
+  session.history.pop();
+  // Forget guesses made after the answer being undone.
+  if (session.lastGuessAt > session.history.length) session.lastGuessAt = session.history.length;
+  step();
 }
 
-function renderResult() {
-  $("places").innerHTML = "";
-  if (!state.ranked.length) {
-    $("result-emoji").textContent = "🤔";
-    $("result-name").textContent = "Nothing matched — try loosening your answers";
-    $("result-reasons").innerHTML = "";
-    $("runner-ups").innerHTML = "";
-    show("result");
-    return;
+function pickFood(food) {
+  chosen.food = food;
+  $("distance-emoji").textContent = food.emoji;
+  const box = $("distance-options");
+  box.innerHTML = "";
+  for (const d of DISTANCES) {
+    box.appendChild(button(d.label, () => {
+      chosen.miles = d.miles;
+      showResult();
+    }));
   }
+  show("distance");
+}
 
-  const food = state.ranked[state.pickIndex].food;
+function showResult() {
+  const food = chosen.food;
   $("result-emoji").textContent = food.emoji;
   $("result-name").textContent = food.name;
-
-  const reasons = $("result-reasons");
-  reasons.innerHTML = "";
-  for (const text of reasonsFor(food, state.answers)) {
-    const li = document.createElement("li");
-    li.textContent = text;
-    reasons.appendChild(li);
-  }
-
-  const runners = $("runner-ups");
-  runners.innerHTML = "";
-  state.ranked.forEach((r, i) => {
-    if (i === state.pickIndex || runners.children.length >= 5) return;
-    const li = document.createElement("li");
-    const a = document.createElement("a");
-    a.href = "#";
-    a.textContent = `${r.food.emoji} ${r.food.name}`;
-    a.onclick = (e) => {
-      e.preventDefault();
-      state.pickIndex = i;
-      renderResult();
-    };
-    li.appendChild(a);
-    runners.appendChild(li);
-  });
-
-  $("next-btn").disabled = state.ranked.length < 2;
+  $("result-distance").textContent = `Within ${chosen.miles} mi`;
   show("result");
+  searchFrom(getBrowserLocation);
 }
 
 function setPlacesMessage(text, cls = "status") {
@@ -107,13 +112,12 @@ function setPlacesMessage(text, cls = "status") {
 }
 
 async function searchFrom(getOrigin) {
-  const food = state.ranked[state.pickIndex].food;
-  const miles = state.answers.distance ?? 5;
-  setPlacesMessage("Finding a spot…");
+  const { food, miles } = chosen;
+  setPlacesMessage("📍 Finding where you are…");
   let origin = null;
   try {
     origin = await getOrigin();
-    setPlacesMessage(`Searching for ${food.name.toLowerCase()} within ${miles} mi…`);
+    setPlacesMessage(`🔮 Searching for ${food.name.toLowerCase()} within ${miles} mi…`);
     const places = await findPlaces(food, origin, miles);
     renderPlaces(food, places, origin, miles);
   } catch (err) {
@@ -132,35 +136,44 @@ function renderPlaces(food, places, origin, miles) {
   }
 
   const top = places[0];
-  const heading = document.createElement("h3");
-  heading.textContent = `Go to: ${top.name}`;
-  box.appendChild(heading);
+  const winner = document.createElement("div");
+  winner.className = "winner";
+  winner.innerHTML = `<p class="muted small">Go to</p><h2></h2><p class="muted small meta"></p><a class="btn primary" target="_blank" rel="noopener">Get directions</a>`;
+  winner.querySelector("h2").textContent = top.name;
+  winner.querySelector(".meta").textContent = [`${top.miles.toFixed(1)} mi away`, top.address, top.hours].filter(Boolean).join(" · ");
+  winner.querySelector("a").href = mapsLink(top);
+  box.appendChild(winner);
 
-  const list = document.createElement("ul");
-  list.className = "place-list";
-  for (const p of places.slice(0, 8)) {
-    const li = document.createElement("li");
-    li.className = "place";
-    li.innerHTML = `
-      <div class="place-head"><span class="name"></span><span class="dist"></span></div>
-      <div class="place-meta"></div>
-      <div class="place-meta links"><a target="_blank" rel="noopener">Directions</a></div>`;
-    li.querySelector(".name").textContent = p.name;
-    li.querySelector(".dist").textContent = `${p.miles.toFixed(1)} mi`;
-    li.querySelector(".place-meta").textContent = [p.cuisine, p.address, p.hours].filter(Boolean).join(" · ");
-    li.querySelector("a").href = mapsLink(p);
-    if (p.website && /^https?:\/\//.test(p.website)) {
-      const site = document.createElement("a");
-      site.href = p.website;
-      site.target = "_blank";
-      site.rel = "noopener";
-      site.textContent = "Website";
-      li.querySelector(".links").append(" · ", site);
-    }
-    list.appendChild(li);
+  if (places.length > 1) {
+    const details = document.createElement("details");
+    details.className = "runners";
+    details.innerHTML = `<summary>Other spots nearby (${Math.min(places.length - 1, 7)})</summary><ul class="place-list"></ul>`;
+    for (const p of places.slice(1, 8)) details.querySelector("ul").appendChild(placeItem(p));
+    box.appendChild(details);
   }
-  box.appendChild(list);
   appendMapsFallback(food, origin, "See more on Google Maps →");
+}
+
+function placeItem(p) {
+  const li = document.createElement("li");
+  li.className = "place";
+  li.innerHTML = `
+    <div class="place-head"><span class="name"></span><span class="dist"></span></div>
+    <div class="place-meta"></div>
+    <div class="place-meta links"><a target="_blank" rel="noopener">Directions</a></div>`;
+  li.querySelector(".name").textContent = p.name;
+  li.querySelector(".dist").textContent = `${p.miles.toFixed(1)} mi`;
+  li.querySelector(".place-meta").textContent = [p.cuisine, p.address, p.hours].filter(Boolean).join(" · ");
+  li.querySelector("a").href = mapsLink(p);
+  if (p.website && /^https?:\/\//.test(p.website)) {
+    const site = document.createElement("a");
+    site.href = p.website;
+    site.target = "_blank";
+    site.rel = "noopener";
+    site.textContent = "Website";
+    li.querySelector(".links").append(" · ", site);
+  }
+  return li;
 }
 
 function appendMapsFallback(food, origin, label = `Search “${food.search}” on Google Maps →`) {
@@ -175,22 +188,17 @@ function appendMapsFallback(food, origin, label = `Search “${food.search}” o
   $("places").appendChild(p);
 }
 
-$("start-btn").onclick = () => {
-  state.step = 0;
-  state.answers = {};
-  renderQuestion();
+$("start-btn").onclick = newGame;
+$("undo-btn").onclick = undo;
+$("guess-undo").onclick = undo;
+$("guess-yes").onclick = () => pickFood(currentGuess);
+$("guess-no").onclick = () => {
+  session.rejected.push(currentGuess.name);
+  session.lastGuessAt = session.history.length;
+  step();
 };
-$("back-btn").onclick = () => {
-  if (state.step === 0) return show("start");
-  state.step--;
-  renderQuestion();
-};
-$("next-btn").onclick = () => {
-  state.pickIndex = (state.pickIndex + 1) % state.ranked.length;
-  renderResult();
-};
+$("stumped-restart").onclick = () => show("start");
 $("restart-btn").onclick = () => show("start");
-$("locate-btn").onclick = () => searchFrom(getBrowserLocation);
 $("address-form").onsubmit = (e) => {
   e.preventDefault();
   const q = $("address-input").value.trim();
