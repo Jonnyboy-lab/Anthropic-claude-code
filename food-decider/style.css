@@ -59,7 +59,7 @@ a { color: inherit; }
 .btn.link:hover { color: var(--ink); }
 
 /* Questions */
-.answers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+.answers { display: grid; gap: 8px; width: 100%; }
 .answers .btn { padding: 16px; font-size: 1.05rem; }
 .progress { width: 100%; height: 8px; background: var(--accent-soft); border-radius: 99px; overflow: hidden; }
 .progress-fill { height: 100%; width: 0; background: var(--accent); transition: width 0.3s; }
@@ -97,3 +97,6 @@ a { color: inherit; }
 .place-meta { font-size: 0.85rem; color: var(--muted); }
 .status { font-size: 0.9rem; color: var(--muted); }
 .status.error { color: var(--error); }
+
+.where .status { width: 100%; margin: 0; }
+.where .status:empty { display: none; }

@@ -1,34 +1,40 @@
 # What Sounds Good? 🍽️
 
-A quick guide for when you can't decide what to eat. It asks up to 10 simple
-questions about what you feel like, then shows what you're leaning toward
-tonight: a best match plus a few other options that fit, each with links to
-find it nearby.
+A quick mood check for when you can't decide what to eat. Instead of asking
+"Do you want Mexican food?", it asks how tonight *feels* and quietly steers
+toward food that fits, then shows what you're leaning toward and where to get it.
 
 ## How it works
 
-1. You answer questions like *"Do you want bread?"*, *"Greasy food?"* or
-   *"Something spicy?"* with **Yes / Kind of / No / Don't care**.
-2. Each answer re-weights ~40 dishes. The next question is always the one that
-   best separates the dishes still in the running, so every question counts.
-   It stops early when more questions wouldn't change the result, and you can
-   tap **Show my options now** after 4 questions.
-3. The results page shows what you leaned toward (Bread, Greasy, Not spicy, …),
-   your best match with a % match score, and 3 other options, each with the
-   answers it fits.
-4. Each option has Google Maps and Yelp links for your city / zip (or "near me"),
-   and a **Find restaurants** button that lists real places nearby within the
-   distance you pick.
+1. Up to 8 mood questions, picked from a pool of 15, like:
+   - *If you could eat anywhere tonight, where would you be?* (a neon night
+     market, a beach shack, a roadside diner, a spice market, …)
+   - *How do you want to feel when you're done?* (stuffed and sleepy, light and
+     energized, like I treated myself, …)
+   - *Which word makes your mouth water?* (crispy, saucy, melty, slurpy, …)
+   - *Be honest: are you trying to be good tonight?*
+2. Each answer quietly re-weights ~90 dishes from around the world. The next
+   question is whichever best separates the dishes still in the running. You
+   can tap **Show my options now** after 4.
+3. One practical last question: *anything off the table?* (no meat, vegan, no
+   seafood). These are strict rules.
+4. The results page shows what you leaned toward (Slurpy, Night market,
+   Light, …), your best match with a % match score, and 3 more options, each
+   with nearby places plus Google Maps and Yelp links.
 
 It also checks the time of day, so at night it leans toward dinner and
 late-night food.
 
 ## Finding a restaurant
 
-Restaurants come from [OpenStreetMap](https://www.openstreetmap.org/) (Overpass
-for places, Nominatim for typed addresses), filtered to the dish's cuisine
-within your chosen distance and sorted by distance. A Google Maps search link is
-always offered as a fallback. No API keys are needed.
+Tap **Use my location** (or type a city / zip) and pick how far you'll go. Your
+best match lists real nearby places from [OpenStreetMap](https://www.openstreetmap.org/),
+sorted by distance, with directions; other options show theirs when you tap
+**Show places**. If you've already allowed location for the page, it finds you
+automatically. No API keys are needed.
+
+**Demo mode:** open `index.html?demo` to use made-up sample restaurants instead,
+so you can try it without sharing your location.
 
 ## Running it
 
@@ -43,18 +49,19 @@ python3 -m http.server 8000
 
 ## Files
 
-- `foods.js`: the dishes and their traits (bread, greasy, spicy, tags like noodles/cheese, …)
-- `decider.js`: the questions, question ordering and ranking
-- `places.js`: location lookup and the OpenStreetMap restaurant search
+- `foods.js`: ~90 dishes and their traits (region, bread, greasy, spicy, textures, …)
+- `decider.js`: the mood questions, question ordering and ranking
+- `places.js`: location lookup, the OpenStreetMap restaurant search, and demo restaurants
 - `app.js`: the UI
-- `test.js`: `node test.js` simulates someone who'd love each dish answering honestly, and checks that dish comes out on top
+- `test.js`: `node test.js` simulates someone in the mood for each dish answering honestly, and checks that dish comes out on top
 
 ## Adding to it
 
-- **New dish:** add an entry to `foods.js` with its traits and tags.
-- **New question:** add an entry to `QUESTIONS` in `decider.js` with a `match(food)`
-  function returning 0–1 (how well the food fits a "yes"). Mark it `filter: true`
-  if it's a requirement (for example "Does it need to be vegan?"), where "no"
-  shouldn't rule anything out. Give it short `yes` / `no` labels for the results page.
+- **New dish:** add a `dish(...)` row to `foods.js`. The comment at the top
+  explains each column.
+- **New question:** add an entry to `QUESTIONS` in `decider.js`. Each answer
+  choice has a `label`, a short `tag` for the results page, and a `fit(food)`
+  returning 0–1 for how well a dish matches that feeling. Mark a choice
+  `neutral: true` if it shouldn't change anything.
 
 Run `node test.js` after changes to make sure every dish can still come out on top.

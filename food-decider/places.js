@@ -11,7 +11,7 @@ function getBrowserLocation() {
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
       () => reject(new Error("Couldn't get your location. Try typing a city or zip code instead.")),
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
     );
   });
 }
@@ -82,4 +82,45 @@ function mapsLink(place) {
 }
 
 
-if (typeof module !== "undefined") module.exports = { buildOverpassQuery, distanceMiles };
+// Made-up restaurants for test drives, so the app can be tried without
+// sharing a location. Same food and distance always give the same places.
+const DEMO_PREFIXES = ["Golden", "Little", "Corner", "Lucky", "Blue Door", "Night Owl", "Main Street", "Copper Pot",
+  "Sunny Side", "Old Town", "Two Brothers", "Hometown", "Red Lantern", "Midtown", "Saltwater", "Backyard"];
+const DEMO_SUFFIXES = ["Kitchen", "House", "& Co.", "Spot", "Joint", "Bar", "Cafe", "Eatery"];
+const DEMO_STREETS = ["Maple Ave", "Main St", "Oak St", "Elm St", "Market St", "2nd Ave", "Park Blvd", "River Rd", "Cedar Ln", "Broadway"];
+
+function seededRandom(text) {
+  let h = 2166136261;
+  for (const c of text) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  return () => {
+    h = Math.imul(h ^ (h >>> 15), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return ((h ^= h >>> 16) >>> 0) / 4294967296;
+  };
+}
+
+function demoPlaces(food, miles, count = 4) {
+  const rand = seededRandom(food.name);
+  const pick = (list) => list[Math.floor(rand() * list.length)];
+  const dish = food.search.replace(/\b\w/g, (c) => c.toUpperCase());
+  const closes = food.meals.includes("late") ? ["12 AM", "1 AM", "2 AM"] : ["9 PM", "10 PM", "11 PM"];
+  const used = new Set();
+  const places = [];
+  while (places.length < count) {
+    const name = `${pick(DEMO_PREFIXES)} ${dish} ${pick(DEMO_SUFFIXES)}`;
+    if (used.has(name)) continue;
+    used.add(name);
+    places.push({
+      name,
+      address: `${100 + Math.floor(rand() * 9800)} ${pick(DEMO_STREETS)}`,
+      hours: `Open until ${pick(closes)}`,
+      rating: (3.9 + rand() * 1).toFixed(1),
+      price: "$".repeat(food.price),
+      miles: Math.max(0.1, Math.pow(rand(), 1.5) * miles),
+      demo: true,
+    });
+  }
+  return places.sort((a, b) => a.miles - b.miles);
+}
+
+if (typeof module !== "undefined") module.exports = { buildOverpassQuery, distanceMiles, demoPlaces };

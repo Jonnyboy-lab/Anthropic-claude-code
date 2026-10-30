@@ -1,58 +1,153 @@
-// Each food is described by traits the questionnaire scores against.
-//   bread:  0 = none, 1 = some, 2 = bread is the star
-//   greasy: 0 = light, 1 = middle, 2 = indulgent
-//   spicy:  0 = mild, 1 = some kick, 2 = hot
-//   diets:  which diets the dish can satisfy
-//   price:  1 = $, 2 = $$, 3 = $$$
-//   meals:  meal times it fits
-//   speed:  "fast" (counter/takeout) or "sit" (sit-down)
-//   novelty: 0 = familiar comfort, 2 = adventurous
-//   heavy:  0 = snack-sized, 2 = very filling
-//   temp:   "hot" or "cold" dish
-//   tags:   extra features the oracle can ask about (noodles, cheese, …)
-//   osm:    OpenStreetMap cuisine tags used to find restaurants nearby
-//   search: text used for map search fallbacks
+// The dishes the guide can recommend. Each row is one dish:
+//
+//   dish(name, emoji, region, [bread, greasy, spicy, heavy, novelty], price, hot, sitDown,
+//        diets, meals, tags, osm, search)
+//
+//   region:   where in the world it's from; drives the "where would you be?" question
+//   bread…novelty: 0–2 each (none / some / lots; novelty: familiar → adventurous)
+//   price:    1 = $, 2 = $$, 3 = $$$
+//   hot:      served hot (vs cold / fresh)
+//   sitDown:  usually a sit-down meal (vs grab and go)
+//   diets:    the main protein first, then other diets it can be made for
+//             (meat, seafood, veg = vegetarian, vegan)
+//   meals:    B breakfast, L lunch, D dinner, N late night
+//   tags:     feelings and textures: crispy saucy melty slurpy fresh smoky grilled soup
+//             comfort healthy sweet shareable, and how you eat it: hands fork chopsticks spoon
+//   osm:      OpenStreetMap cuisine tags used to find real restaurants
+//   search:   what to search for on a map
+
+const MEAL_CODES = { B: "breakfast", L: "lunch", D: "dinner", N: "late" };
+
+function dish(name, emoji, region, [bread, greasy, spicy, heavy, novelty], price, hot, sitDown, diets, meals, tags, osm, search) {
+  return {
+    name, emoji, region, bread, greasy, spicy, heavy, novelty, price,
+    temp: hot ? "hot" : "cold",
+    speed: sitDown ? "sit" : "fast",
+    diets: diets.split(" ").map((d) => (d === "veg" ? "vegetarian" : d)),
+    meals: [...meals].map((c) => MEAL_CODES[c]),
+    tags: tags.split(" "),
+    osm: osm.split(" "),
+    search,
+  };
+}
+
+const HOT = true, COLD = false, SIT = true, FAST = false;
+
 const FOODS = [
-  { name: "Burger & Fries", emoji: "🍔", bread: 2, greasy: 2, spicy: 0, diets: ["meat", "vegetarian"], price: 1, meals: ["lunch", "dinner", "late"], speed: "fast", novelty: 0, heavy: 2, temp: "hot", tags: ["american", "handheld", "fried", "cheese", "comfort", "grilled"], osm: ["burger", "american"], search: "burger restaurant" },
-  { name: "Pizza", emoji: "🍕", bread: 2, greasy: 2, spicy: 0, diets: ["meat", "vegetarian"], price: 1, meals: ["lunch", "dinner", "late"], speed: "fast", novelty: 0, heavy: 2, temp: "hot", tags: ["italian", "cheese", "handheld", "comfort", "shareable"], osm: ["pizza", "italian"], search: "pizza" },
-  { name: "Fried Chicken", emoji: "🍗", bread: 1, greasy: 2, spicy: 1, diets: ["meat"], price: 1, meals: ["lunch", "dinner", "late"], speed: "fast", novelty: 0, heavy: 2, temp: "hot", tags: ["american", "fried", "handheld", "comfort"], osm: ["chicken", "fried_chicken", "american"], search: "fried chicken" },
-  { name: "Tacos", emoji: "🌮", bread: 1, greasy: 1, spicy: 2, diets: ["meat", "seafood", "vegetarian", "vegan"], price: 1, meals: ["lunch", "dinner", "late"], speed: "fast", novelty: 1, heavy: 1, temp: "hot", tags: ["mexican", "handheld", "grilled", "shareable"], osm: ["mexican", "tex-mex", "tacos"], search: "tacos" },
-  { name: "Burrito", emoji: "🌯", bread: 1, greasy: 1, spicy: 1, diets: ["meat", "vegetarian", "vegan"], price: 1, meals: ["lunch", "dinner", "late"], speed: "fast", novelty: 0, heavy: 2, temp: "hot", tags: ["mexican", "handheld", "rice", "cheese"], osm: ["mexican", "tex-mex", "burrito"], search: "burrito" },
-  { name: "Deli Sandwich", emoji: "🥪", bread: 2, greasy: 0, spicy: 0, diets: ["meat", "vegetarian", "vegan"], price: 1, meals: ["breakfast", "lunch"], speed: "fast", novelty: 0, heavy: 1, temp: "cold", tags: ["american", "handheld"], osm: ["sandwich", "deli"], search: "sandwich shop" },
-  { name: "Philly Cheesesteak", emoji: "🥖", bread: 2, greasy: 2, spicy: 0, diets: ["meat"], price: 1, meals: ["lunch", "dinner", "late"], speed: "fast", novelty: 0, heavy: 2, temp: "hot", tags: ["american", "handheld", "cheese", "grilled", "comfort"], osm: ["sandwich", "american", "cheesesteak"], search: "cheesesteak" },
-  { name: "Sushi", emoji: "🍣", bread: 0, greasy: 0, spicy: 0, diets: ["seafood", "vegetarian", "vegan"], price: 3, meals: ["lunch", "dinner"], speed: "sit", novelty: 1, heavy: 1, temp: "cold", tags: ["asian", "rice", "chopsticks", "healthy", "shareable"], osm: ["sushi", "japanese"], search: "sushi" },
-  { name: "Ramen", emoji: "🍜", bread: 0, greasy: 1, spicy: 1, diets: ["meat", "vegetarian", "vegan"], price: 2, meals: ["lunch", "dinner", "late"], speed: "sit", novelty: 1, heavy: 2, temp: "hot", tags: ["asian", "noodles", "soup", "chopsticks", "comfort"], osm: ["ramen", "japanese", "noodle"], search: "ramen" },
-  { name: "Pho", emoji: "🍲", bread: 0, greasy: 0, spicy: 1, diets: ["meat", "vegetarian", "vegan"], price: 1, meals: ["breakfast", "lunch", "dinner"], speed: "sit", novelty: 1, heavy: 1, temp: "hot", tags: ["asian", "noodles", "soup", "chopsticks", "healthy"], osm: ["vietnamese", "pho"], search: "pho" },
-  { name: "Banh Mi", emoji: "🥖", bread: 2, greasy: 0, spicy: 1, diets: ["meat", "vegetarian", "vegan"], price: 1, meals: ["breakfast", "lunch"], speed: "fast", novelty: 2, heavy: 1, temp: "cold", tags: ["asian", "handheld", "grilled"], osm: ["vietnamese", "sandwich"], search: "banh mi" },
-  { name: "Pad Thai & Curry", emoji: "🍛", bread: 0, greasy: 1, spicy: 2, diets: ["meat", "seafood", "vegetarian", "vegan"], price: 2, meals: ["lunch", "dinner"], speed: "sit", novelty: 1, heavy: 2, temp: "hot", tags: ["asian", "noodles", "rice"], osm: ["thai"], search: "thai food" },
-  { name: "Indian Curry & Naan", emoji: "🍛", bread: 2, greasy: 1, spicy: 2, diets: ["meat", "vegetarian", "vegan"], price: 2, meals: ["lunch", "dinner"], speed: "sit", novelty: 1, heavy: 2, temp: "hot", tags: ["rice", "comfort", "shareable"], osm: ["indian", "pakistani", "nepalese"], search: "indian restaurant" },
-  { name: "Chinese Takeout", emoji: "🥡", bread: 0, greasy: 2, spicy: 1, diets: ["meat", "seafood", "vegetarian", "vegan"], price: 1, meals: ["lunch", "dinner", "late"], speed: "fast", novelty: 0, heavy: 2, temp: "hot", tags: ["asian", "rice", "noodles", "fried", "chopsticks", "comfort"], osm: ["chinese"], search: "chinese food" },
-  { name: "Szechuan Hot Pot", emoji: "🌶️", bread: 0, greasy: 1, spicy: 2, diets: ["meat", "seafood", "vegetarian", "vegan"], price: 3, meals: ["dinner"], speed: "sit", novelty: 2, heavy: 2, temp: "hot", tags: ["asian", "soup", "chopsticks", "shareable"], osm: ["chinese", "sichuan", "hot_pot"], search: "hot pot" },
-  { name: "Korean BBQ", emoji: "🥩", bread: 0, greasy: 1, spicy: 1, diets: ["meat"], price: 3, meals: ["dinner"], speed: "sit", novelty: 2, heavy: 2, temp: "hot", tags: ["asian", "grilled", "rice", "chopsticks", "shareable"], osm: ["korean", "barbecue"], search: "korean bbq" },
-  { name: "Gyro / Shawarma", emoji: "🥙", bread: 2, greasy: 1, spicy: 1, diets: ["meat", "vegetarian", "vegan"], price: 1, meals: ["lunch", "dinner", "late"], speed: "fast", novelty: 1, heavy: 2, temp: "hot", tags: ["middle_eastern", "handheld", "grilled"], osm: ["greek", "kebab", "lebanese", "middle_eastern", "turkish", "shawarma"], search: "shawarma gyro" },
-  { name: "Falafel & Hummus Bowl", emoji: "🧆", bread: 1, greasy: 0, spicy: 0, diets: ["vegetarian", "vegan"], price: 1, meals: ["lunch", "dinner"], speed: "fast", novelty: 1, heavy: 1, temp: "hot", tags: ["middle_eastern", "healthy", "fried"], osm: ["falafel", "lebanese", "middle_eastern", "mediterranean"], search: "falafel" },
-  { name: "Pasta", emoji: "🍝", bread: 1, greasy: 1, spicy: 0, diets: ["meat", "seafood", "vegetarian", "vegan"], price: 2, meals: ["lunch", "dinner"], speed: "sit", novelty: 0, heavy: 2, temp: "hot", tags: ["italian", "noodles", "cheese", "comfort"], osm: ["italian", "pasta"], search: "italian restaurant" },
-  { name: "Steakhouse", emoji: "🥩", bread: 1, greasy: 1, spicy: 0, diets: ["meat"], price: 3, meals: ["dinner"], speed: "sit", novelty: 0, heavy: 2, temp: "hot", tags: ["american", "grilled"], osm: ["steak_house", "steak"], search: "steakhouse" },
-  { name: "BBQ Ribs & Brisket", emoji: "🍖", bread: 1, greasy: 2, spicy: 1, diets: ["meat"], price: 2, meals: ["lunch", "dinner"], speed: "sit", novelty: 0, heavy: 2, temp: "hot", tags: ["american", "grilled", "comfort", "shareable"], osm: ["bbq", "barbecue"], search: "bbq restaurant" },
-  { name: "Seafood Platter", emoji: "🦞", bread: 0, greasy: 1, spicy: 0, diets: ["seafood"], price: 3, meals: ["lunch", "dinner"], speed: "sit", novelty: 1, heavy: 2, temp: "hot", tags: ["grilled", "shareable"], osm: ["seafood"], search: "seafood restaurant" },
-  { name: "Fish & Chips", emoji: "🐟", bread: 0, greasy: 2, spicy: 0, diets: ["seafood"], price: 2, meals: ["lunch", "dinner"], speed: "fast", novelty: 0, heavy: 2, temp: "hot", tags: ["fried", "comfort"], osm: ["fish_and_chips", "seafood", "british"], search: "fish and chips" },
-  { name: "Poke Bowl", emoji: "🥗", bread: 0, greasy: 0, spicy: 1, diets: ["seafood", "vegetarian", "vegan"], price: 2, meals: ["lunch", "dinner"], speed: "fast", novelty: 1, heavy: 1, temp: "cold", tags: ["rice", "healthy"], osm: ["poke", "hawaiian"], search: "poke bowl" },
-  { name: "Salad", emoji: "🥗", bread: 0, greasy: 0, spicy: 0, diets: ["meat", "seafood", "vegetarian", "vegan"], price: 2, meals: ["lunch", "dinner"], speed: "fast", novelty: 0, heavy: 0, temp: "cold", tags: ["healthy"], osm: ["salad", "healthy", "vegetarian"], search: "salad" },
-  { name: "Grain / Buddha Bowl", emoji: "🥙", bread: 0, greasy: 0, spicy: 1, diets: ["meat", "vegetarian", "vegan"], price: 2, meals: ["lunch", "dinner"], speed: "fast", novelty: 1, heavy: 1, temp: "hot", tags: ["rice", "healthy"], osm: ["healthy", "vegan", "vegetarian", "bowl"], search: "healthy bowl" },
-  { name: "Diner Breakfast", emoji: "🥞", bread: 1, greasy: 2, spicy: 0, diets: ["meat", "vegetarian"], price: 1, meals: ["breakfast", "lunch", "late"], speed: "sit", novelty: 0, heavy: 2, temp: "hot", tags: ["american", "comfort", "sweet"], osm: ["diner", "breakfast", "american"], search: "diner" },
-  { name: "Bagel & Coffee", emoji: "🥯", bread: 2, greasy: 0, spicy: 0, diets: ["meat", "vegetarian", "vegan"], price: 1, meals: ["breakfast"], speed: "fast", novelty: 0, heavy: 1, temp: "cold", tags: ["handheld", "coffee", "cheese"], osm: ["bagel", "coffee_shop", "breakfast"], search: "bagel shop" },
-  { name: "Brunch (Eggs Benedict & Avo Toast)", emoji: "🍳", bread: 2, greasy: 1, spicy: 0, diets: ["meat", "vegetarian", "vegan"], price: 2, meals: ["breakfast", "lunch"], speed: "sit", novelty: 0, heavy: 1, temp: "hot", tags: ["american", "coffee"], osm: ["breakfast", "brunch", "cafe"], search: "brunch" },
-  { name: "Breakfast Burrito", emoji: "🌯", bread: 1, greasy: 2, spicy: 1, diets: ["meat", "vegetarian"], price: 1, meals: ["breakfast"], speed: "fast", novelty: 0, heavy: 2, temp: "hot", tags: ["mexican", "handheld", "cheese"], osm: ["mexican", "breakfast"], search: "breakfast burrito" },
-  { name: "Hot Dogs", emoji: "🌭", bread: 2, greasy: 2, spicy: 0, diets: ["meat", "vegetarian"], price: 1, meals: ["lunch", "late"], speed: "fast", novelty: 0, heavy: 1, temp: "hot", tags: ["american", "handheld", "grilled"], osm: ["hot_dog", "american"], search: "hot dogs" },
-  { name: "Wings", emoji: "🍗", bread: 0, greasy: 2, spicy: 2, diets: ["meat"], price: 2, meals: ["dinner", "late"], speed: "sit", novelty: 0, heavy: 1, temp: "hot", tags: ["american", "fried", "shareable"], osm: ["wings", "chicken"], search: "chicken wings" },
-  { name: "Mediterranean Plate", emoji: "🫒", bread: 1, greasy: 0, spicy: 0, diets: ["meat", "seafood", "vegetarian", "vegan"], price: 2, meals: ["lunch", "dinner"], speed: "sit", novelty: 1, heavy: 1, temp: "hot", tags: ["middle_eastern", "healthy", "grilled", "rice"], osm: ["mediterranean", "greek"], search: "mediterranean restaurant" },
-  { name: "Ethiopian Platter", emoji: "🍽️", bread: 2, greasy: 0, spicy: 2, diets: ["meat", "vegetarian", "vegan"], price: 2, meals: ["lunch", "dinner"], speed: "sit", novelty: 2, heavy: 2, temp: "hot", tags: ["shareable"], osm: ["ethiopian", "african"], search: "ethiopian restaurant" },
-  { name: "Dim Sum", emoji: "🥟", bread: 1, greasy: 1, spicy: 0, diets: ["meat", "seafood", "vegetarian"], price: 2, meals: ["breakfast", "lunch"], speed: "sit", novelty: 2, heavy: 1, temp: "hot", tags: ["asian", "chopsticks", "shareable"], osm: ["dim_sum", "chinese", "cantonese"], search: "dim sum" },
-  { name: "Dumplings", emoji: "🥟", bread: 1, greasy: 1, spicy: 1, diets: ["meat", "seafood", "vegetarian", "vegan"], price: 1, meals: ["lunch", "dinner", "late"], speed: "fast", novelty: 1, heavy: 1, temp: "hot", tags: ["asian", "chopsticks", "handheld"], osm: ["dumpling", "chinese"], search: "dumplings" },
-  { name: "Peruvian Chicken", emoji: "🍗", bread: 0, greasy: 1, spicy: 1, diets: ["meat"], price: 2, meals: ["lunch", "dinner"], speed: "sit", novelty: 2, heavy: 2, temp: "hot", tags: ["grilled", "rice"], osm: ["peruvian", "latin_american"], search: "peruvian chicken" },
-  { name: "Soup & Bread Bowl", emoji: "🥣", bread: 2, greasy: 0, spicy: 0, diets: ["meat", "vegetarian", "vegan"], price: 1, meals: ["lunch", "dinner"], speed: "fast", novelty: 0, heavy: 1, temp: "hot", tags: ["soup", "comfort"], osm: ["soup", "bakery", "cafe"], search: "soup" },
-  { name: "Ice Cream / Dessert", emoji: "🍦", bread: 0, greasy: 1, spicy: 0, diets: ["vegetarian", "vegan"], price: 1, meals: ["lunch", "dinner", "late"], speed: "fast", novelty: 0, heavy: 0, temp: "cold", tags: ["sweet"], osm: ["ice_cream", "dessert", "frozen_yogurt"], search: "ice cream" },
-  { name: "Bakery Pastries", emoji: "🥐", bread: 2, greasy: 1, spicy: 0, diets: ["vegetarian", "vegan"], price: 1, meals: ["breakfast", "lunch"], speed: "fast", novelty: 0, heavy: 0, temp: "cold", tags: ["sweet", "coffee", "handheld"], osm: ["bakery", "cafe", "coffee_shop"], search: "bakery" },
+  // American & diner
+  dish("Smash Burger & Fries", "🍔", "american", [2, 2, 0, 2, 0], 1, HOT, FAST, "meat veg", "LDN", "crispy melty hands comfort", "burger american", "burgers"),
+  dish("Chicken Tenders & Fries", "🍟", "american", [0, 2, 0, 1, 0], 1, HOT, FAST, "meat", "LDN", "crispy hands comfort", "chicken american", "chicken tenders"),
+  dish("Philly Cheesesteak", "🥖", "american", [2, 2, 0, 2, 0], 1, HOT, FAST, "meat veg", "LDN", "melty hands comfort", "sandwich cheesesteak american", "cheesesteak"),
+  dish("Deli Sandwich", "🥪", "american", [2, 0, 0, 1, 0], 1, COLD, FAST, "meat veg vegan", "BL", "fresh hands", "sandwich deli", "deli sandwich"),
+  dish("Hot Dogs & Chili Dogs", "🌭", "american", [2, 2, 1, 1, 0], 1, HOT, FAST, "meat veg", "LN", "hands comfort", "hot_dog american", "hot dogs"),
+  dish("Buffalo Wings", "🍗", "american", [0, 2, 2, 1, 0], 2, HOT, SIT, "meat", "DN", "crispy saucy hands shareable", "wings chicken american", "chicken wings"),
+  dish("Steakhouse Dinner", "🥩", "american", [1, 1, 0, 2, 0], 3, HOT, SIT, "meat", "D", "grilled smoky fork", "steak_house steak", "steakhouse"),
+  dish("Diner Breakfast", "🥞", "american", [1, 2, 0, 2, 0], 1, HOT, SIT, "meat veg", "BLN", "comfort sweet fork", "diner breakfast american", "diner"),
+  dish("Soup & Grilled Cheese", "🥣", "american", [2, 1, 0, 1, 0], 1, HOT, FAST, "veg meat", "LD", "soup melty comfort spoon", "soup sandwich cafe", "soup and grilled cheese"),
+  dish("Poutine & Cheese Fries", "🍟", "american", [0, 2, 0, 2, 1], 1, HOT, FAST, "veg meat", "LN", "crispy melty comfort fork", "poutine american", "poutine"),
+  dish("Big Chopped Salad", "🥗", "american", [0, 0, 0, 0, 0], 2, COLD, FAST, "meat seafood veg vegan", "LD", "fresh healthy fork", "salad healthy", "salad"),
+  dish("Grain Bowl", "🥙", "american", [0, 0, 1, 1, 1], 2, HOT, FAST, "meat veg vegan", "LD", "fresh healthy fork", "healthy bowl vegetarian", "grain bowl"),
+  dish("Bagel & Schmear", "🥯", "american", [2, 0, 0, 1, 0], 1, COLD, FAST, "veg meat vegan", "B", "hands", "bagel breakfast", "bagels"),
+  dish("Brunch Plate", "🍳", "american", [2, 1, 0, 1, 0], 2, HOT, SIT, "meat veg vegan", "BL", "comfort fork", "breakfast brunch cafe", "brunch"),
+  dish("Lobster Roll", "🦞", "american", [2, 1, 0, 1, 1], 3, COLD, FAST, "seafood", "LD", "fresh hands", "seafood", "lobster roll"),
+  dish("Oysters & Raw Bar", "🦪", "american", [0, 0, 0, 0, 2], 3, COLD, SIT, "seafood", "D", "fresh", "seafood oyster", "oyster bar"),
+
+  // Southern, soul & Cajun
+  dish("BBQ Brisket & Ribs", "🍖", "southern", [1, 2, 1, 2, 0], 2, HOT, SIT, "meat", "LD", "smoky grilled saucy hands shareable comfort", "bbq barbecue", "bbq"),
+  dish("Soul Food Plate", "🍗", "southern", [1, 2, 0, 2, 1], 2, HOT, SIT, "meat", "LD", "crispy comfort fork", "soul_food southern", "soul food"),
+  dish("Chicken & Waffles", "🧇", "southern", [1, 2, 0, 2, 1], 2, HOT, SIT, "meat", "BLD", "crispy sweet comfort fork", "southern soul_food breakfast", "chicken and waffles"),
+  dish("Mac & Cheese", "🧀", "southern", [0, 2, 0, 2, 0], 1, HOT, FAST, "veg", "LD", "melty comfort spoon", "southern american", "mac and cheese"),
+  dish("Gumbo & Jambalaya", "🍲", "southern", [0, 1, 2, 2, 1], 2, HOT, SIT, "meat seafood", "LD", "saucy soup comfort spoon", "cajun creole", "cajun"),
+  dish("Shrimp Po' Boy", "🥖", "southern", [2, 2, 1, 2, 1], 2, HOT, FAST, "seafood", "LD", "crispy hands", "cajun sandwich seafood", "po boy"),
+  dish("Seafood Boil", "🦀", "southern", [0, 1, 2, 2, 1], 3, HOT, SIT, "seafood", "D", "saucy hands shareable", "seafood cajun", "seafood boil"),
+
+  // Mexican
+  dish("Street Tacos", "🌮", "mexican", [1, 1, 2, 1, 0], 1, HOT, FAST, "meat seafood veg vegan", "LDN", "grilled fresh hands", "mexican tacos", "tacos"),
+  dish("Loaded Burrito", "🌯", "mexican", [1, 1, 1, 2, 0], 1, HOT, FAST, "meat veg vegan", "LDN", "melty comfort hands", "mexican burrito tex-mex", "burrito"),
+  dish("Birria Tacos & Consomé", "🌮", "mexican", [1, 2, 2, 2, 1], 1, HOT, FAST, "meat", "LDN", "saucy melty soup hands", "mexican tacos", "birria"),
+  dish("Enchiladas & Mole", "🫔", "mexican", [0, 1, 1, 2, 1], 2, HOT, SIT, "meat veg", "LD", "saucy melty fork", "mexican", "enchiladas"),
+  dish("Quesadilla", "🧀", "mexican", [1, 2, 0, 1, 0], 1, HOT, FAST, "meat veg", "LDN", "melty crispy hands", "mexican tex-mex", "quesadilla"),
+  dish("Loaded Nachos", "🧀", "mexican", [0, 2, 1, 2, 0], 1, HOT, FAST, "meat veg", "LDN", "crispy melty hands shareable", "mexican tex-mex", "nachos"),
+  dish("Pozole", "🍲", "mexican", [0, 0, 1, 2, 2], 2, HOT, SIT, "meat", "LD", "soup comfort spoon", "mexican", "pozole"),
+  dish("Tamales", "🫔", "mexican", [1, 1, 1, 1, 1], 1, HOT, FAST, "meat veg", "BLD", "comfort hands", "mexican", "tamales"),
+  dish("Breakfast Burrito", "🌯", "mexican", [1, 2, 1, 2, 0], 1, HOT, FAST, "meat veg", "B", "melty hands", "mexican breakfast", "breakfast burrito"),
+
+  // Latin American & Caribbean
+  dish("Pupusas", "🫓", "latin", [2, 1, 0, 1, 2], 1, HOT, SIT, "meat veg", "LD", "melty comfort hands", "salvadoran latin_american", "pupusas"),
+  dish("Arepas", "🫓", "latin", [2, 1, 0, 1, 2], 1, HOT, FAST, "meat veg", "BLD", "melty hands", "venezuelan colombian latin_american", "arepas"),
+  dish("Empanadas", "🥟", "latin", [2, 2, 0, 1, 1], 1, HOT, FAST, "meat veg", "LDN", "crispy hands", "argentinian empanada latin_american", "empanadas"),
+  dish("Peruvian Rotisserie Chicken", "🍗", "latin", [0, 1, 1, 2, 1], 2, HOT, SIT, "meat", "LD", "grilled smoky fork", "peruvian latin_american chicken", "peruvian chicken"),
+  dish("Ceviche", "🍋", "latin", [0, 0, 2, 0, 2], 2, COLD, SIT, "seafood", "LD", "fresh healthy fork", "peruvian seafood latin_american", "ceviche"),
+  dish("Brazilian Steakhouse", "🥩", "latin", [0, 1, 0, 2, 2], 3, HOT, SIT, "meat", "D", "grilled smoky shareable fork", "brazilian steak_house", "brazilian steakhouse"),
+  dish("Cuban Sandwich", "🥪", "caribbean", [2, 2, 0, 2, 1], 1, HOT, FAST, "meat", "LD", "melty crispy hands", "cuban caribbean sandwich", "cuban sandwich"),
+  dish("Jerk Chicken & Rice", "🍗", "caribbean", [0, 1, 2, 2, 1], 1, HOT, FAST, "meat", "LD", "smoky grilled fork", "jamaican caribbean", "jerk chicken"),
+  dish("Roti & Curry Goat", "🫓", "caribbean", [2, 1, 2, 2, 2], 2, HOT, FAST, "meat veg", "LD", "saucy hands", "caribbean trinidadian jamaican", "caribbean roti"),
+  dish("Poke Bowl", "🐟", "islands", [0, 0, 1, 1, 1], 2, COLD, FAST, "seafood veg vegan", "LD", "fresh healthy chopsticks", "poke hawaiian", "poke"),
+  dish("Hawaiian Plate Lunch", "🍍", "islands", [0, 2, 0, 2, 1], 1, HOT, FAST, "meat", "LD", "saucy grilled comfort fork", "hawaiian", "hawaiian plate lunch"),
+
+  // Italian & European
+  dish("Classic Pizza", "🍕", "italian", [2, 2, 0, 2, 0], 1, HOT, FAST, "meat veg", "LDN", "melty comfort hands shareable", "pizza italian", "pizza"),
+  dish("Wood-Fired Neapolitan Pizza", "🍕", "italian", [2, 1, 0, 1, 1], 2, HOT, SIT, "veg meat vegan", "D", "melty shareable fork", "pizza italian", "neapolitan pizza"),
+  dish("Pasta Night", "🍝", "italian", [1, 1, 0, 2, 0], 2, HOT, SIT, "meat seafood veg vegan", "LD", "saucy slurpy comfort fork", "italian pasta", "pasta"),
+  dish("Lasagna & Baked Ziti", "🧀", "italian", [1, 2, 0, 2, 0], 2, HOT, SIT, "meat veg", "D", "melty saucy comfort fork", "italian", "lasagna"),
+  dish("Chicken Parm Sub", "🥖", "italian", [2, 2, 0, 2, 0], 1, HOT, FAST, "meat veg", "LD", "melty saucy comfort hands", "italian sandwich", "chicken parm"),
+  dish("Risotto & Wine Bar", "🍷", "italian", [1, 1, 0, 1, 1], 3, HOT, SIT, "veg seafood meat", "D", "saucy melty fork", "italian wine_bar", "italian wine bar"),
+  dish("French Bistro Steak Frites", "🥩", "european", [2, 1, 0, 2, 1], 3, HOT, SIT, "meat seafood", "D", "crispy fork", "french", "french bistro"),
+  dish("Crêpes", "🥞", "european", [1, 1, 0, 1, 1], 1, HOT, FAST, "veg meat", "BLN", "sweet melty fork", "crepe french", "crepes"),
+  dish("Schnitzel & Sausages", "🥨", "european", [2, 2, 0, 2, 1], 2, HOT, SIT, "meat", "LD", "crispy comfort fork", "german", "german"),
+  dish("Pierogi", "🥟", "european", [1, 1, 0, 2, 2], 1, HOT, SIT, "veg meat", "LD", "melty comfort fork", "polish ukrainian", "pierogi"),
+  dish("Spanish Tapas", "🫒", "european", [1, 1, 1, 1, 1], 3, HOT, SIT, "meat seafood veg", "D", "shareable fork", "spanish tapas", "tapas"),
+  dish("Paella", "🥘", "european", [0, 1, 0, 2, 2], 3, HOT, SIT, "seafood meat", "D", "saucy shareable fork", "spanish", "paella"),
+  dish("Fish & Chips", "🐟", "european", [0, 2, 0, 2, 0], 2, HOT, FAST, "seafood", "LD", "crispy comfort hands", "fish_and_chips british", "fish and chips"),
+
+  // Mediterranean & Middle Eastern
+  dish("Gyro & Shawarma", "🥙", "mediterranean", [2, 1, 1, 2, 0], 1, HOT, FAST, "meat veg", "LDN", "saucy grilled hands", "greek kebab shawarma middle_eastern turkish lebanese", "shawarma"),
+  dish("Falafel & Hummus", "🧆", "mediterranean", [1, 1, 0, 1, 1], 1, HOT, FAST, "vegan veg", "LD", "crispy healthy hands", "falafel lebanese middle_eastern mediterranean", "falafel"),
+  dish("Greek Souvlaki Plate", "🫒", "mediterranean", [1, 0, 0, 1, 0], 2, HOT, SIT, "meat seafood veg", "LD", "grilled fresh healthy fork", "greek mediterranean", "greek"),
+  dish("Turkish Kebab Platter", "🍢", "mediterranean", [1, 1, 1, 2, 1], 2, HOT, SIT, "meat", "LD", "grilled smoky shareable fork", "turkish kebab", "turkish kebab"),
+  dish("Persian Kebab & Saffron Rice", "🍢", "mediterranean", [0, 0, 0, 2, 2], 2, HOT, SIT, "meat veg", "LD", "grilled fork", "persian iranian", "persian"),
+  dish("Shakshuka", "🍳", "mediterranean", [2, 0, 1, 1, 2], 2, HOT, SIT, "veg", "BL", "saucy spoon", "israeli middle_eastern breakfast", "shakshuka"),
+
+  // South Asian
+  dish("Butter Chicken & Naan", "🍛", "south_asian", [2, 1, 1, 2, 1], 2, HOT, SIT, "meat veg", "LD", "saucy comfort hands", "indian", "indian"),
+  dish("Biryani", "🍚", "south_asian", [0, 1, 2, 2, 1], 2, HOT, SIT, "meat veg", "LD", "shareable fork", "indian pakistani", "biryani"),
+  dish("Fiery Vindaloo", "🌶️", "south_asian", [1, 1, 2, 2, 1], 2, HOT, SIT, "meat veg vegan", "D", "saucy fork", "indian", "indian curry"),
+  dish("Dosa", "🫓", "south_asian", [1, 1, 1, 1, 2], 1, HOT, SIT, "veg vegan", "BLD", "crispy hands", "indian south_indian", "dosa"),
+  dish("Momos", "🥟", "south_asian", [1, 1, 1, 1, 2], 1, HOT, FAST, "meat veg", "LD", "hands", "nepalese tibetan", "momos"),
+
+  // African
+  dish("Ethiopian Platter", "🍽️", "african", [2, 0, 2, 2, 2], 2, HOT, SIT, "meat veg vegan", "LD", "saucy shareable hands", "ethiopian eritrean", "ethiopian"),
+  dish("Jollof Rice & Suya", "🍢", "african", [0, 1, 2, 2, 2], 2, HOT, SIT, "meat", "LD", "smoky grilled fork", "nigerian african west_african", "nigerian"),
+
+  // East Asian
+  dish("Sushi", "🍣", "east_asian", [0, 0, 0, 1, 1], 3, COLD, SIT, "seafood veg vegan", "LD", "fresh healthy chopsticks", "sushi japanese", "sushi"),
+  dish("Ramen", "🍜", "east_asian", [0, 1, 1, 2, 1], 2, HOT, SIT, "meat veg vegan", "LDN", "slurpy soup comfort chopsticks", "ramen japanese noodle", "ramen"),
+  dish("Udon & Tempura", "🍤", "east_asian", [0, 1, 0, 2, 1], 2, HOT, SIT, "seafood veg vegan", "LD", "slurpy soup crispy comfort chopsticks", "japanese udon noodle", "udon"),
+  dish("Katsu Curry", "🍛", "east_asian", [0, 2, 0, 2, 1], 2, HOT, SIT, "meat", "LD", "crispy saucy comfort fork", "japanese", "katsu curry"),
+  dish("Teriyaki Bowl", "🍱", "east_asian", [0, 1, 0, 1, 0], 1, HOT, FAST, "meat veg", "LD", "saucy grilled fork", "japanese teriyaki", "teriyaki"),
+  dish("Korean BBQ", "🥓", "east_asian", [0, 1, 1, 2, 2], 3, HOT, SIT, "meat", "D", "grilled smoky shareable chopsticks", "korean barbecue", "korean bbq"),
+  dish("Korean Fried Chicken", "🍗", "east_asian", [0, 2, 1, 1, 1], 2, HOT, FAST, "meat", "DN", "crispy saucy shareable hands", "korean chicken", "korean fried chicken"),
+  dish("Bibimbap", "🍚", "east_asian", [0, 0, 1, 1, 1], 2, HOT, SIT, "meat veg vegan", "LD", "fresh healthy spoon", "korean", "bibimbap"),
+  dish("Chinese Takeout", "🥡", "east_asian", [0, 2, 1, 2, 0], 1, HOT, FAST, "meat seafood veg vegan", "LDN", "saucy crispy comfort chopsticks", "chinese", "chinese food"),
+  dish("Dim Sum", "🥟", "east_asian", [1, 1, 0, 1, 2], 2, HOT, SIT, "meat seafood veg", "BL", "shareable chopsticks", "dim_sum chinese cantonese", "dim sum"),
+  dish("Sichuan Hot Pot", "🫕", "east_asian", [0, 1, 2, 2, 2], 3, HOT, SIT, "meat seafood veg vegan", "DN", "soup shareable chopsticks spoon", "chinese sichuan hot_pot", "hot pot"),
+  dish("Noodles & Dumplings", "🥢", "east_asian", [1, 1, 1, 1, 1], 1, HOT, FAST, "meat veg", "LDN", "slurpy comfort chopsticks", "chinese noodle dumpling", "dumplings"),
+
+  // Southeast Asian
+  dish("Pad Thai", "🍜", "southeast_asian", [0, 1, 1, 2, 0], 2, HOT, SIT, "meat seafood veg vegan", "LD", "slurpy saucy chopsticks", "thai", "pad thai"),
+  dish("Thai Green Curry", "🍛", "southeast_asian", [0, 1, 2, 2, 1], 2, HOT, SIT, "meat seafood veg vegan", "LD", "saucy comfort spoon", "thai", "thai curry"),
+  dish("Pho", "🍲", "southeast_asian", [0, 0, 1, 1, 1], 1, HOT, SIT, "meat veg vegan", "BLD", "slurpy soup healthy comfort chopsticks spoon", "vietnamese pho", "pho"),
+  dish("Banh Mi", "🥖", "southeast_asian", [2, 0, 1, 1, 1], 1, COLD, FAST, "meat veg vegan", "BL", "fresh hands", "vietnamese sandwich", "banh mi"),
+  dish("Filipino Adobo & Lumpia", "🍗", "southeast_asian", [0, 2, 0, 2, 2], 2, HOT, SIT, "meat", "LD", "crispy saucy comfort fork", "filipino", "filipino"),
+  dish("Laksa", "🍜", "southeast_asian", [0, 1, 2, 2, 2], 2, HOT, SIT, "seafood meat", "LD", "slurpy soup spoon", "malaysian singaporean", "laksa"),
+
+  // Sweets & cafés
+  dish("Ice Cream", "🍦", "cafe", [0, 1, 0, 0, 0], 1, COLD, FAST, "veg vegan", "LDN", "sweet", "ice_cream frozen_yogurt", "ice cream"),
+  dish("Donuts", "🍩", "cafe", [2, 2, 0, 0, 0], 1, COLD, FAST, "veg", "BN", "sweet hands", "donut", "donuts"),
+  dish("Bakery & Pastries", "🥐", "cafe", [2, 1, 0, 0, 0], 1, COLD, FAST, "veg vegan", "BL", "sweet hands", "bakery cafe", "bakery"),
+  dish("Bubble Tea & Snacks", "🧋", "cafe", [0, 0, 0, 0, 1], 1, COLD, FAST, "veg vegan", "LDN", "sweet", "bubble_tea", "bubble tea"),
+  dish("Açaí Bowl", "🫐", "cafe", [0, 0, 0, 0, 1], 2, COLD, FAST, "vegan veg", "BL", "sweet fresh healthy spoon", "acai juice", "acai bowl"),
+  dish("Late-Night Dessert Bar", "🍰", "cafe", [0, 1, 0, 1, 0], 2, COLD, SIT, "veg", "DN", "sweet fork", "dessert cake", "dessert"),
 ];
 
 if (typeof module !== "undefined") module.exports = { FOODS };

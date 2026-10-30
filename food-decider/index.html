@@ -11,12 +11,12 @@
   <main class="card">
     <section id="screen-start" class="screen">
       <div class="hero">🍽️</div>
-      <p class="eyebrow">10 quick questions</p>
+      <p class="eyebrow">A quick mood check</p>
       <h1>What Sounds Good?</h1>
-      <p class="muted">Stop scrolling menus. Answer a few quick questions about what you feel like, and I'll show you what you're leaning toward and where to get it.</p>
-      <button class="btn primary" id="start-btn" type="button">Help me pick</button>
+      <p class="muted">Not sure what you want? Tell me how tonight feels and I'll show you what you're craving, and where to get it.</p>
+      <button class="btn primary" id="start-btn" type="button">Let's figure it out</button>
     </section>
-  
+
     <section id="screen-question" class="screen" hidden>
       <div class="progress"><div class="progress-fill" id="progress"></div></div>
       <p class="eyebrow" id="qcount"></p>
@@ -27,26 +27,28 @@
         <button class="btn link" id="skip-btn" type="button">Show my options now →</button>
       </div>
     </section>
-  
+
     <section id="screen-result" class="screen" hidden>
       <p class="eyebrow">Tonight you're leaning toward</p>
       <div class="chips" id="leanings"></div>
-  
+
       <form class="where" id="where-form">
-        <label for="where">Where are you? City or zip, or leave blank to search near you</label>
-        <input id="where" type="text" placeholder="e.g. Austin, TX or 10001" autocomplete="postal-code">
-        <select id="distance" aria-label="How far you'll travel" hidden>
+        <label for="where" id="where-label">Where are you?</label>
+        <input id="where" type="text" placeholder="City or zip" autocomplete="postal-code">
+        <button class="btn small" id="locate-btn" type="button">📍 Use my location</button>
+        <select id="distance" aria-label="How far you'll travel">
           <option value="1">Within 1 mi</option>
           <option value="5" selected>Within 5 mi</option>
           <option value="15">Within 15 mi</option>
           <option value="30">Within 30 mi</option>
         </select>
+        <p class="status" id="where-status"></p>
       </form>
-  
+
       <div class="options" id="top-option"></div>
       <p class="eyebrow section-label">Other options that fit</p>
       <div class="options" id="other-options"></div>
-  
+
       <div class="q-nav">
         <button class="btn link" id="edit-btn" type="button">← Change answers</button>
         <button class="btn link" id="restart-btn" type="button">↺ Start over</button>
