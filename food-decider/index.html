@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>What Should I Eat?</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="card" id="app">
+    <section id="screen-start" class="screen">
+      <div class="hero-emoji">🍽️</div>
+      <h1>What should I eat?</h1>
+      <p class="muted">Answer a few quick questions and we'll pick your food — and find a place to get it.</p>
+      <button class="btn primary" id="start-btn">Let's decide</button>
+    </section>
+
+    <section id="screen-question" class="screen hidden">
+      <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+      <p class="muted small" id="question-count"></p>
+      <h2 id="question-text"></h2>
+      <div class="options" id="options"></div>
+      <button class="btn link" id="back-btn">← Back</button>
+    </section>
+
+    <section id="screen-result" class="screen hidden">
+      <p class="muted small">You should eat…</p>
+      <div class="hero-emoji" id="result-emoji"></div>
+      <h1 id="result-name"></h1>
+      <ul class="reasons" id="result-reasons"></ul>
+
+      <div class="actions">
+        <button class="btn primary" id="locate-btn">📍 Find places near me</button>
+        <button class="btn" id="next-btn">Not feeling it — next idea</button>
+      </div>
+
+      <form id="address-form" class="address-form">
+        <input id="address-input" type="text" placeholder="…or enter a city / zip code" autocomplete="postal-code" />
+        <button class="btn" type="submit">Search</button>
+      </form>
+
+      <div id="places"></div>
+
+      <details class="runners">
+        <summary>Other good options</summary>
+        <ol id="runner-ups"></ol>
+      </details>
+
+      <button class="btn link" id="restart-btn">↺ Start over</button>
+    </section>
+  </main>
+
+  <script src="foods.js"></script>
+  <script src="decider.js"></script>
+  <script src="places.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
